@@ -12,6 +12,26 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zombieland -d zombieland_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: zombieland-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/zombieland_db
+      SPRING_DATASOURCE_USERNAME: zombieland
+      SPRING_DATASOURCE_PASSWORD: zombieland_password
+    ports:
+      - "8080:8080"
 
 volumes:
   pgdata:
