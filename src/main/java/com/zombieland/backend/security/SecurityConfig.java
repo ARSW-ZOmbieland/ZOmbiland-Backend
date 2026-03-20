@@ -69,7 +69,7 @@ public class SecurityConfig {
                                 
                                 // ── H2 Console (solo dev) y WebSockets ──────────────────────────────────────
                                 .csrf(csrf -> csrf
-                                                .ignoringRequestMatchers("/h2-console/**", "/ws-game/**"))
+                                                .ignoringRequestMatchers("/h2-console/**", "/ws-game/**", "/api/game/rooms/create"))
                                 .headers(headers -> headers
                                                 .frameOptions(frame -> frame.sameOrigin()));
 

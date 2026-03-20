@@ -12,6 +12,19 @@ public class RoomManager {
     
     // sessionId -> PlayerSessionInfo
     private final ConcurrentHashMap<String, PlayerSessionInfo> sessionTrackers = new ConcurrentHashMap<>();
+    
+    // Explicitly generated room codes
+    private final Set<String> validRooms = ConcurrentHashMap.newKeySet();
+
+    public void createRoom(String roomCode) {
+        String code = roomCode.toUpperCase();
+        validRooms.add(code);
+        roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
+    }
+
+    public boolean roomExists(String roomCode) {
+        return validRooms.contains(roomCode.toUpperCase());
+    }
 
     public static class PlayerSessionInfo {
         public String roomCode;
@@ -23,8 +36,12 @@ public class RoomManager {
     }
 
     public synchronized boolean joinRoom(GameActionMessage message, String sessionId) {
-        String roomCode = message.getRoomCode();
+        String roomCode = message.getRoomCode().toUpperCase();
         String playerId = message.getPlayerId();
+        
+        if (!validRooms.contains(roomCode)) {
+            return false;
+        }
         
         roomPlayers.putIfAbsent(roomCode, new ConcurrentHashMap<>());
         Map<String, GameActionMessage> players = roomPlayers.get(roomCode);

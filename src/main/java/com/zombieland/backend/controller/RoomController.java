@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 @RestController
@@ -23,5 +24,17 @@ public class RoomController {
     @GetMapping("/{code}/state")
     public Collection<GameActionMessage> getRoomState(@PathVariable String code) {
         return roomManager.getRoomState(code.toUpperCase());
+    }
+
+    @PostMapping("/create")
+    public void createRoom(@RequestBody Map<String, String> payload) {
+        if (payload.containsKey("roomCode")) {
+            roomManager.createRoom(payload.get("roomCode"));
+        }
+    }
+
+    @GetMapping("/{code}/exists")
+    public boolean checkRoomExists(@PathVariable String code) {
+        return roomManager.roomExists(code.toUpperCase());
     }
 }
