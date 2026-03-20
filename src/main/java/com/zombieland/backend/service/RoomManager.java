@@ -1,0 +1,76 @@
+package com.zombieland.backend.service;
+
+import com.zombieland.backend.dto.GameActionMessage;
+import org.springframework.stereotype.Service;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+@Service
+public class RoomManager {
+    // roomCode -> (playerId -> GameActionMessage)
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, GameActionMessage>> roomPlayers = new ConcurrentHashMap<>();
+    
+    // sessionId -> PlayerSessionInfo
+    private final ConcurrentHashMap<String, PlayerSessionInfo> sessionTrackers = new ConcurrentHashMap<>();
+
+    public static class PlayerSessionInfo {
+        public String roomCode;
+        public String playerId;
+        public PlayerSessionInfo(String roomCode, String playerId) {
+            this.roomCode = roomCode;
+            this.playerId = playerId;
+        }
+    }
+
+    public synchronized boolean joinRoom(GameActionMessage message, String sessionId) {
+        String roomCode = message.getRoomCode();
+        String playerId = message.getPlayerId();
+        
+        roomPlayers.putIfAbsent(roomCode, new ConcurrentHashMap<>());
+        Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
+        
+        // Check if room is full (max 4)
+        if (players.size() >= 4 && !players.containsKey(playerId)) {
+            return false; 
+        }
+        
+        players.put(playerId, message);
+        sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
+        return true;
+    }
+
+    public void updatePlayerState(GameActionMessage message) {
+        String roomCode = message.getRoomCode();
+        if (roomPlayers.containsKey(roomCode)) {
+            Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
+            if (players.containsKey(message.getPlayerId())) {
+                players.put(message.getPlayerId(), message);
+            }
+        }
+    }
+
+    public synchronized String leaveRoomBySession(String sessionId) {
+        PlayerSessionInfo info = sessionTrackers.remove(sessionId);
+        if (info != null) {
+            Map<String, GameActionMessage> players = roomPlayers.get(info.roomCode);
+            if (players != null) {
+                players.remove(info.playerId);
+                if (players.isEmpty()) {
+                    roomPlayers.remove(info.roomCode);
+                }
+            }
+            return info.roomCode;
+        }
+        return null;
+    }
+
+    public Set<String> getPlayersInRoom(String roomCode) {
+        if (!roomPlayers.containsKey(roomCode)) return Collections.emptySet();
+        return roomPlayers.get(roomCode).keySet();
+    }
+
+    public Collection<GameActionMessage> getRoomState(String roomCode) {
+        if (!roomPlayers.containsKey(roomCode)) return Collections.emptyList();
+        return roomPlayers.get(roomCode).values();
+    }
+}

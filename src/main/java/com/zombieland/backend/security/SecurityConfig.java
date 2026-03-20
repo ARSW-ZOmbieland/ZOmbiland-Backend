@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.beans.factory.annotation.Value;
 import java.util.List;
 
 /**
@@ -21,6 +22,12 @@ import java.util.List;
 public class SecurityConfig {
 
         private final CustomOAuth2UserService customOAuth2UserService;
+        
+        @Value("${app.frontend.url:http://localhost:5173}")
+        private String frontendUrl;
+
+        @Value("${app.cors.allowed-origins:http://localhost:5173}")
+        private List<String> allowedOrigins;
 
         public SecurityConfig(CustomOAuth2UserService customOAuth2UserService) {
                 this.customOAuth2UserService = customOAuth2UserService;
@@ -47,22 +54,22 @@ public class SecurityConfig {
                                 .oauth2Login(oauth -> oauth
                                                 .userInfoEndpoint(userInfo -> userInfo
                                                                 .oidcUserService(customOAuth2UserService))
-                                                .defaultSuccessUrl("http://localhost:5173", true) // Redirigir al
+                                                .defaultSuccessUrl(frontendUrl, true) // Redirigir al
                                                                                                   // frontend al tener
                                                                                                   // éxito
-                                                .failureUrl("http://localhost:5173/login?error=true"))
+                                                .failureUrl(frontendUrl + "/login?error=true"))
 
                                 // ── Logout ─────────────────────────────────────────────────────
                                 .logout(logout -> logout
                                                 .logoutRequestMatcher(PathPatternRequestMatcher.pathPattern(HttpMethod.GET, "/logout"))
-                                                .logoutSuccessUrl("http://localhost:5173")
+                                                .logoutSuccessUrl(frontendUrl)
                                                 .invalidateHttpSession(true)
                                                 .clearAuthentication(true)
                                                 .deleteCookies("JSESSIONID"))
-
-                                // ── H2 Console (solo dev) ──────────────────────────────────────
+                                
+                                // ── H2 Console (solo dev) y WebSockets ──────────────────────────────────────
                                 .csrf(csrf -> csrf
-                                                .ignoringRequestMatchers("/h2-console/**"))
+                                                .ignoringRequestMatchers("/h2-console/**", "/ws-game/**"))
                                 .headers(headers -> headers
                                                 .frameOptions(frame -> frame.sameOrigin()));
 
@@ -70,15 +77,14 @@ public class SecurityConfig {
         }
 
         @Bean
-        public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
-                org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
-                configuration.setAllowedOrigins(java.util.List.of("http://localhost:5173")); // URL del frontend en
-                                                                                             // React
-                configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-                configuration.setAllowedHeaders(java.util.List.of("*"));
-                configuration.setAllowCredentials(true); // Permitir el envío de cookies de sesión (JSESSIONID)
+        public CorsConfigurationSource corsConfigurationSource() {
+                CorsConfiguration configuration = new CorsConfiguration();
+                configuration.setAllowedOrigins(allowedOrigins);
+                configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                configuration.setAllowedHeaders(List.of("*"));
+                configuration.setAllowCredentials(true);
 
-                org.springframework.web.cors.UrlBasedCorsConfigurationSource source = new org.springframework.web.cors.UrlBasedCorsConfigurationSource();
+                UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
                 source.registerCorsConfiguration("/**", configuration);
                 return source;
         }
