@@ -1,12 +1,22 @@
 package com.zombieland.backend.service;
 
 import com.zombieland.backend.dto.GameActionMessage;
+import com.zombieland.backend.dto.WorldMapDTO;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class RoomManager {
+    // roomCode -> WorldMapDTO
+    private final ConcurrentHashMap<String, WorldMapDTO> roomMaps = new ConcurrentHashMap<>();
+    
+    private final MapGenerator mapGenerator;
+
+    public RoomManager(MapGenerator mapGenerator) {
+        this.mapGenerator = mapGenerator;
+    }
+
     // roomCode -> (playerId -> GameActionMessage)
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, GameActionMessage>> roomPlayers = new ConcurrentHashMap<>();
     
@@ -20,6 +30,11 @@ public class RoomManager {
         String code = roomCode.toUpperCase();
         validRooms.add(code);
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
+        roomMaps.putIfAbsent(code, mapGenerator.generateMap());
+    }
+
+    public WorldMapDTO getRoomMap(String roomCode) {
+        return roomMaps.get(roomCode.toUpperCase());
     }
 
     public boolean roomExists(String roomCode) {

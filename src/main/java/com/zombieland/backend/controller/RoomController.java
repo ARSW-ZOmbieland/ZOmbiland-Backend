@@ -2,6 +2,7 @@ package com.zombieland.backend.controller;
 
 import com.zombieland.backend.service.RoomManager;
 import com.zombieland.backend.dto.GameActionMessage;
+import com.zombieland.backend.dto.WorldMapDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,11 @@ public class RoomController {
     @GetMapping("/{code}/state")
     public Collection<GameActionMessage> getRoomState(@PathVariable String code) {
         return roomManager.getRoomState(code.toUpperCase());
+    }
+
+    @GetMapping("/{code}/map")
+    public WorldMapDTO getRoomMap(@PathVariable String code) {
+        return roomManager.getRoomMap(code.toUpperCase());
     }
 
     @PostMapping("/create")
