@@ -45,7 +45,56 @@ public class MapGenerator {
             matrix[campY][campX + 1] = 53; // forest_supply_box
             matrix[campY][campX + 2] = 57; // wood_stump
             matrix[campY + 2][campX] = 51; // branch_pile
-        }        // Pick start and end points ensuring they are far apart
+        }
+
+        // Place 3 procedural cities
+        for (int c = 0; c < 3; c++) {
+            int cX = 15 + rand.nextInt(30);
+            int cY = 15 + rand.nextInt(30);
+
+            // Carreterita (Road)
+            for (int dy = -4; dy <= 4; dy++) {
+                for (int dx = -1; dx <= 1; dx++) {
+                    matrix[cY + dy][cX + dx] = 1; // Basic stone road texture underneath
+                }
+            }
+
+            // VFX and urban props on the road
+            matrix[cY][cX] = 80;           // barrilfuego.gif
+            matrix[cY - 2][cX] = 72;       // street_light
+            matrix[cY + 2][cX - 1] = 74;   // traffic_cone
+            matrix[cY - 1][cX + 1] = 70;   // crate_01
+            matrix[cY + 3][cX] = 73;       // supply_box
+
+            // Buildings on the sides (Left: cX-3, Right: cX+3)
+            int[][] buildings = {
+                {cY, cX - 3}, {cY, cX + 3},
+                {cY - 4, cX - 3}, {cY - 4, cX + 3}
+            };
+            
+            for(int[] b : buildings) {
+                int bY = b[0], bX = b[1];
+                matrix[bY][bX] = 60 + rand.nextInt(5); // Building IDs (60-64)
+                
+                // Add Invisible Solid Blocks (99) to simulate the 3x3 footprint collision logic behind it
+                for (int by = 0; by <= 2; by++) {
+                    for (int bx = -1; bx <= 1; bx++) {
+                        if (by == 0 && bx == 0) continue; // Skip anchor
+                        matrix[bY - by][bX + bx] = 99; // 99 is rendered transparent but blocks movement
+                    }
+                }
+            }
+        }
+
+        // Frame the edges of the map with Police Barricades (ID 90)
+        for (int i = 0; i < size; i++) {
+            matrix[0][i] = 90;           // Top edge
+            matrix[size - 1][i] = 90;    // Bottom edge
+            matrix[i][0] = 90;           // Left edge
+            matrix[i][size - 1] = 90;    // Right edge
+        }
+
+        // Pick start and end points ensuring they are far apart
         int startX, startY, endX, endY;
         do {
             startX = rand.nextInt(size);

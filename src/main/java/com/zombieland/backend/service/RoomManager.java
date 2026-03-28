@@ -2,6 +2,7 @@ package com.zombieland.backend.service;
 
 import com.zombieland.backend.dto.GameActionMessage;
 import com.zombieland.backend.dto.WorldMapDTO;
+import com.zombieland.backend.dto.ZombieState;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,6 +21,9 @@ public class RoomManager {
     // roomCode -> (playerId -> GameActionMessage)
     private final ConcurrentHashMap<String, ConcurrentHashMap<String, GameActionMessage>> roomPlayers = new ConcurrentHashMap<>();
     
+    // roomCode -> List of Zombies
+    private final ConcurrentHashMap<String, List<ZombieState>> roomZombies = new ConcurrentHashMap<>();
+    
     // sessionId -> PlayerSessionInfo
     private final ConcurrentHashMap<String, PlayerSessionInfo> sessionTrackers = new ConcurrentHashMap<>();
     
@@ -30,7 +34,13 @@ public class RoomManager {
         String code = roomCode.toUpperCase();
         validRooms.add(code);
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
-        roomMaps.putIfAbsent(code, mapGenerator.generateMap());
+        WorldMapDTO map = mapGenerator.generateMap();
+        roomMaps.putIfAbsent(code, map);
+        
+        // Initial Zombie near start
+        List<ZombieState> zombies = new ArrayList<>();
+        zombies.add(new ZombieState("zombie-1", map.getStartX() + 1, map.getStartY() + 1, "abajo"));
+        roomZombies.put(code, zombies);
     }
 
     public WorldMapDTO getRoomMap(String roomCode) {
@@ -104,5 +114,13 @@ public class RoomManager {
     public Collection<GameActionMessage> getRoomState(String roomCode) {
         if (!roomPlayers.containsKey(roomCode)) return Collections.emptyList();
         return roomPlayers.get(roomCode).values();
+    }
+
+    public List<ZombieState> getZombiesInRoom(String roomCode) {
+        return roomZombies.getOrDefault(roomCode.toUpperCase(), Collections.emptyList());
+    }
+
+    public Set<String> getAllActiveRooms() {
+        return roomPlayers.keySet();
     }
 }
