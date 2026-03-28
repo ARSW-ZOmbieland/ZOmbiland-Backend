@@ -19,6 +19,9 @@ public class ZombieAIService {
     
     // zombieId + playerId -> lastAttackTimestamp
     private final java.util.concurrent.ConcurrentHashMap<String, Long> lastAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    // zombieId -> lastVisualAttackTimestamp
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> zombieVisualAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
         this.roomManager = roomManager;
@@ -37,8 +40,12 @@ public class ZombieAIService {
             if (zombies.isEmpty() || players.isEmpty() || map == null) continue;
 
             for (ZombieState zombie : zombies) {
+                // Actualizar estado visual de ataque (resetear tras 600ms)
+                long lastVisual = zombieVisualAttackTime.getOrDefault(zombie.getId(), 0L);
+                zombie.setAttacking(System.currentTimeMillis() - lastVisual < 600);
+
                 moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
-                checkAndDamagePlayers(zombie, players, roomCode);
+                checkAndDamagePlayers(zombie, players, roomCode, map.getMatrix());
             }
 
             // Broadcast the new zombie positions to the room
@@ -111,15 +118,18 @@ public class ZombieAIService {
         return false;
     }
 
-    private void checkAndDamagePlayers(ZombieState zombie, Collection<GameActionMessage> players, String roomCode) {
+    private void checkAndDamagePlayers(ZombieState zombie, Collection<GameActionMessage> players, String roomCode, int[][] matrix) {
         long now = System.currentTimeMillis();
         for (GameActionMessage player : players) {
             if (player.getHealth() <= 0) continue; // No dañar muertos
 
+            // Bloqueo de daño en búnker: si el jugador está en una zona no caminable para el zombie (como muros o búnker)
+            if (!isWalkable(matrix, (int)player.getX(), (int)player.getY())) continue;
+
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             
-            // Si el zombie está en la misma casilla (rango < 0.9 para evitar atacar a través de muros)
-            if (dist < 0.9) {
+            // Si el zombie está adyacente (distancia <= 1.1 para margen de error de floats)
+            if (dist <= 1.1) {
                 String attackKey = zombie.getId() + ":" + player.getPlayerId();
                 long lastAttack = lastAttackTime.getOrDefault(attackKey, 0L);
                 
@@ -129,8 +139,8 @@ public class ZombieAIService {
                         int newHealth = Math.max(0, currentHealth - 10);
                         player.setHealth(newHealth);
                         lastAttackTime.put(attackKey, now);
-                        
-                        // Notificar el cambio de vida inmediatamente
+                        zombieVisualAttackTime.put(zombie.getId(), now);
+                        zombie.setAttacking(true);
                         String stateTopic = "/topic/game.state." + roomCode;
                         messagingTemplate.convertAndSend(stateTopic, player);
                         
