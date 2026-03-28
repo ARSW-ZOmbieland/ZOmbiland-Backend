@@ -22,14 +22,23 @@ public class ZombieAIService {
     
     // zombieId -> lastVisualAttackTimestamp
     private final java.util.concurrent.ConcurrentHashMap<String, Long> zombieVisualAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
+    
+    // zombieId + playerId -> timestamp when pursuit/wind-up started
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> attackStartedAt = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private int moveTickCounter = 0;
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 800) // Movimiento cada 0.8 segundos (antes 0.5)
+    @Scheduled(fixedRate = 100) // Ticks cada 100ms para mayor precisión en ataques y delay
     public void updateZombies() {
+        moveTickCounter++;
+        boolean shouldMove = (moveTickCounter >= 8); // Movimiento real cada 800ms
+        if (shouldMove) moveTickCounter = 0;
+
         Set<String> activeRooms = roomManager.getAllActiveRooms();
         
         for (String roomCode : activeRooms) {
@@ -44,7 +53,9 @@ public class ZombieAIService {
                 long lastVisual = zombieVisualAttackTime.getOrDefault(zombie.getId(), 0L);
                 zombie.setAttacking(System.currentTimeMillis() - lastVisual < 600);
 
-                moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
+                if (shouldMove) {
+                    moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
+                }
                 checkAndDamagePlayers(zombie, players, roomCode, map.getMatrix());
             }
 
@@ -123,30 +134,48 @@ public class ZombieAIService {
         for (GameActionMessage player : players) {
             if (player.getHealth() <= 0) continue; // No dañar muertos
 
-            // Bloqueo de daño en búnker: si el jugador está en una zona no caminable para el zombie (como muros o búnker)
+            // Bloqueo de daño en búnker
             if (!isWalkable(matrix, (int)player.getX(), (int)player.getY())) continue;
 
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
-            
-            // Si el zombie está adyacente (distancia <= 1.1 para margen de error de floats)
+            String attackKey = zombie.getId() + ":" + player.getPlayerId();
+
+            // Si el zombie está cerca (adyacente o encima)
             if (dist <= 1.1) {
-                String attackKey = zombie.getId() + ":" + player.getPlayerId();
-                long lastAttack = lastAttackTime.getOrDefault(attackKey, 0L);
-                
-                if (now - lastAttack >= 1000) { // 1 ataque por segundo solicitado por el usuario
+                // Iniciar contador de "wind-up" si no existe
+                attackStartedAt.putIfAbsent(attackKey, now);
+                long startedAt = attackStartedAt.get(attackKey);
+                long lastDamage = lastAttackTime.getOrDefault(attackKey, 0L);
+
+                // Requisito 1: Delay inicial de 0.5s antes del primer daño
+                if (now - startedAt < 500) {
+                    // Animación visual inmediata al empezar el wind-up
+                    zombie.setAttacking(true);
+                    continue; 
+                }
+
+                // Requisito 2: Intervalo de daño normal (cada 1.0s) tras el primer golpe
+                if (now - lastDamage >= 1000) {
                     int currentHealth = player.getHealth();
                     if (currentHealth > 0) {
-                        int newHealth = Math.max(0, currentHealth - 10);
+                        // Requisito 3: Daño variable (20 si está encima, 8 si está al lado)
+                        int damageAmount = (dist < 0.2) ? 20 : 8;
+                        int newHealth = Math.max(0, currentHealth - damageAmount);
+                        
                         player.setHealth(newHealth);
                         lastAttackTime.put(attackKey, now);
                         zombieVisualAttackTime.put(zombie.getId(), now);
                         zombie.setAttacking(true);
+                        
                         String stateTopic = "/topic/game.state." + roomCode;
                         messagingTemplate.convertAndSend(stateTopic, player);
                         
-                        System.out.println(">> ZOMBIE ATTACK! " + zombie.getId() + " bit " + player.getPlayerId() + " HP: " + newHealth);
+                        System.out.println(">> ZOMBIE ATTACK! Dist: " + dist + " Damage: " + damageAmount + " HP: " + newHealth);
                     }
                 }
+            } else {
+                // Si el jugador se alejó, resetear el wind-up para que cuando vuelva a entrar tarde otros 0.5s
+                attackStartedAt.remove(attackKey);
             }
         }
     }

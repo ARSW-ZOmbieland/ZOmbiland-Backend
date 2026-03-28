@@ -6,8 +6,11 @@ public class ZombieState {
     private double y;
     private String direction;
     private boolean attacking;
+    private int health = 100;
 
-    public ZombieState() {}
+    public ZombieState() {
+        this.health = 100;
+    }
 
     public ZombieState(String id, double x, double y, String direction) {
         this.id = id;
@@ -15,6 +18,7 @@ public class ZombieState {
         this.y = y;
         this.direction = direction;
         this.attacking = false;
+        this.health = 100;
     }
 
     public String getId() { return id; }
@@ -27,4 +31,6 @@ public class ZombieState {
     public void setDirection(String direction) { this.direction = direction; }
     public boolean isAttacking() { return attacking; }
     public void setAttacking(boolean attacking) { this.attacking = attacking; }
+    public int getHealth() { return health; }
+    public void setHealth(int health) { this.health = health; }
 }

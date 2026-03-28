@@ -3,7 +3,7 @@ package com.zombieland.backend.service;
 import com.zombieland.backend.dto.WorldMapDTO;
 import org.springframework.stereotype.Service;
 
-import java.util.Random;
+import java.util.*;
 
 @Service
 public class MapGenerator {
@@ -66,21 +66,25 @@ public class MapGenerator {
             matrix[cY - 1][cX + 1] = 70;   // crate_01
             matrix[cY + 3][cX] = 73;       // supply_box
 
-            // Buildings on the sides (Left: cX-3, Right: cX+3)
+            // Spaced out buildings with unique types per city
+            List<Integer> bTypes = new ArrayList<>(Arrays.asList(60, 61, 62, 63, 64));
+            Collections.shuffle(bTypes);
+
             int[][] buildings = {
-                {cY, cX - 3}, {cY, cX + 3},
-                {cY - 4, cX - 3}, {cY - 4, cX + 3}
+                {cY - 6, cX - 4}, // Left
+                {cY, cX + 4},     // Right
+                {cY + 6, cX - 4}  // Left
             };
             
-            for(int[] b : buildings) {
-                int bY = b[0], bX = b[1];
-                matrix[bY][bX] = 60 + rand.nextInt(5); // Building IDs (60-64)
+            for(int i = 0; i < buildings.length; i++) {
+                int bY = buildings[i][0], bX = buildings[i][1];
+                matrix[bY][bX] = bTypes.get(i); // Each building is unique
                 
-                // Add Invisible Solid Blocks (99) to simulate the 3x3 footprint collision logic behind it
+                // Add Invisible Solid Blocks (99) to simulate the 3x3 footprint 
                 for (int by = 0; by <= 2; by++) {
                     for (int bx = -1; bx <= 1; bx++) {
-                        if (by == 0 && bx == 0) continue; // Skip anchor
-                        matrix[bY - by][bX + bx] = 99; // 99 is rendered transparent but blocks movement
+                        if (by == 0 && bx == 0) continue; 
+                        matrix[bY - by][bX + bx] = 99; 
                     }
                 }
             }
