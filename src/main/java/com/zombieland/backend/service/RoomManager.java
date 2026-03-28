@@ -37,9 +37,34 @@ public class RoomManager {
         WorldMapDTO map = mapGenerator.generateMap();
         roomMaps.putIfAbsent(code, map);
         
-        // Initial Zombie near start
+        // Spawn 20 Zombies distributed across the 64x64 map
         List<ZombieState> zombies = new ArrayList<>();
-        zombies.add(new ZombieState("zombie-1", map.getStartX() + 1, map.getStartY() + 1, "abajo"));
+        Random rand = new Random();
+        int[][] matrix = map.getMatrix();
+        
+        for (int i = 1; i <= 20; i++) {
+            int rx = 0, ry = 0;
+            boolean found = false;
+            // Seek a walkable position (Ground tiles 0-7)
+            for (int attempts = 0; attempts < 100; attempts++) {
+                int tx = rand.nextInt(matrix[0].length);
+                int ty = rand.nextInt(matrix.length);
+                int tile = matrix[ty][tx];
+                if (tile >= 0 && tile <= 7) {
+                    rx = tx;
+                    ry = ty;
+                    found = true;
+                    break;
+                }
+            }
+            // Fallback to start position if no random walkable found (unlikely)
+            if (!found) {
+                rx = (int)map.getStartX() + (i % 3);
+                ry = (int)map.getStartY() + (i / 3);
+            }
+            
+            zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo"));
+        }
         roomZombies.put(code, zombies);
     }
 
