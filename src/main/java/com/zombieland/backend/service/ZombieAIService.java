@@ -16,13 +16,16 @@ public class ZombieAIService {
 
     private final RoomManager roomManager;
     private final SimpMessagingTemplate messagingTemplate;
+    
+    // zombieId + playerId -> lastAttackTimestamp
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> lastAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 500) // Movimiento cada 0.5 segundos solicitado por el usuario
+    @Scheduled(fixedRate = 800) // Movimiento cada 0.8 segundos (antes 0.5)
     public void updateZombies() {
         Set<String> activeRooms = roomManager.getAllActiveRooms();
         
@@ -35,6 +38,7 @@ public class ZombieAIService {
 
             for (ZombieState zombie : zombies) {
                 moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
+                checkAndDamagePlayers(zombie, players, roomCode);
             }
 
             // Broadcast the new zombie positions to the room
@@ -103,6 +107,34 @@ public class ZombieAIService {
             return true;
         }
         return false;
+    }
+
+    private void checkAndDamagePlayers(ZombieState zombie, Collection<GameActionMessage> players, String roomCode) {
+        long now = System.currentTimeMillis();
+        for (GameActionMessage player : players) {
+            double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
+            
+            // Si el zombie está encima o alrededor (distancia 1)
+            if (dist <= 1.0) {
+                String attackKey = zombie.getId() + ":" + player.getPlayerId();
+                long lastAttack = lastAttackTime.getOrDefault(attackKey, 0L);
+                
+                if (now - lastAttack >= 1000) { // 1 ataque por segundo solicitado por el usuario
+                    int currentHealth = player.getHealth();
+                    if (currentHealth > 0) {
+                        int newHealth = Math.max(0, currentHealth - 10);
+                        player.setHealth(newHealth);
+                        lastAttackTime.put(attackKey, now);
+                        
+                        // Notificar el cambio de vida inmediatamente
+                        String stateTopic = "/topic/game.state." + roomCode;
+                        messagingTemplate.convertAndSend(stateTopic, player);
+                        
+                        System.out.println(">> ZOMBIE ATTACK! " + zombie.getId() + " bit " + player.getPlayerId() + " HP: " + newHealth);
+                    }
+                }
+            }
+        }
     }
 
     private boolean isWalkable(int[][] matrix, int x, int y) {

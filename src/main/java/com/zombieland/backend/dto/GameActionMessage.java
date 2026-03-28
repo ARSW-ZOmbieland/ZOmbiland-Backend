@@ -6,6 +6,7 @@ public class GameActionMessage {
     private double x;
     private double y;
     private String action;
+    private int health = 100;
 
     public GameActionMessage() {}
 
@@ -15,6 +16,7 @@ public class GameActionMessage {
         this.x = x;
         this.y = y;
         this.action = action;
+        this.health = 100;
     }
 
     public String getPlayerId() { return playerId; }
@@ -27,4 +29,6 @@ public class GameActionMessage {
     public void setY(double y) { this.y = y; }
     public String getAction() { return action; }
     public void setAction(String action) { this.action = action; }
+    public int getHealth() { return health; }
+    public void setHealth(int health) { this.health = health; }
 }

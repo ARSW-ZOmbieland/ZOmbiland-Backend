@@ -85,7 +85,10 @@ public class RoomManager {
         String roomCode = message.getRoomCode();
         if (roomPlayers.containsKey(roomCode)) {
             Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
-            if (players.containsKey(message.getPlayerId())) {
+            GameActionMessage existing = players.get(message.getPlayerId());
+            if (existing != null) {
+                // Preserve health from server state, update only pos/action
+                message.setHealth(existing.getHealth());
                 players.put(message.getPlayerId(), message);
             }
         }
