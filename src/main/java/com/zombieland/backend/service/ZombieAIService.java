@@ -51,8 +51,10 @@ public class ZombieAIService {
         GameActionMessage target = null;
         double minDistance = Double.MAX_VALUE;
 
-        // Find closest player
+        // Find closest player that is alive
         for (GameActionMessage player : players) {
+            if (player.getHealth() <= 0) continue; // Ignorar muertos
+
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             if (dist < minDistance) {
                 minDistance = dist;
@@ -112,10 +114,12 @@ public class ZombieAIService {
     private void checkAndDamagePlayers(ZombieState zombie, Collection<GameActionMessage> players, String roomCode) {
         long now = System.currentTimeMillis();
         for (GameActionMessage player : players) {
+            if (player.getHealth() <= 0) continue; // No dañar muertos
+
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             
-            // Si el zombie está encima o alrededor (distancia 1)
-            if (dist <= 1.0) {
+            // Si el zombie está en la misma casilla (rango < 0.9 para evitar atacar a través de muros)
+            if (dist < 0.9) {
                 String attackKey = zombie.getId() + ":" + player.getPlayerId();
                 long lastAttack = lastAttackTime.getOrDefault(attackKey, 0L);
                 
