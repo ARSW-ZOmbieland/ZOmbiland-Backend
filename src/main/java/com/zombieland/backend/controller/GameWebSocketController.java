@@ -33,9 +33,13 @@ public class GameWebSocketController {
 
     @MessageMapping("/game.action")
     public void handleGameAction(@Payload GameActionMessage message) {
-        System.out.println(">> STOMP ACTION RECEIVED! Player: " + message.getPlayerId() + " Dir: " + message.getAction());
+        System.out.println(">> STOMP ACTION RECEIVED! Player: " + message.getPlayerId() + " Action: " + message.getAction());
         if (message.getRoomCode() != null && !message.getRoomCode().isEmpty()) {
-            roomManager.updatePlayerState(message);
+            if ("ATTACK".equals(message.getAction())) {
+                roomManager.handleAttack(message);
+            } else {
+                roomManager.updatePlayerState(message);
+            }
             String topic = "/topic/game.state." + message.getRoomCode();
             messagingTemplate.convertAndSend(topic, message);
         }

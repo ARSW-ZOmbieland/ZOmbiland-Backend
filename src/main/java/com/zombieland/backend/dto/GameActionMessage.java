@@ -7,6 +7,9 @@ public class GameActionMessage {
     private double y;
     private String action;
     private int health = 100;
+    private double targetX;
+    private double targetY;
+    private double aimAngle;
 
     public GameActionMessage() {}
 
@@ -31,4 +34,10 @@ public class GameActionMessage {
     public void setAction(String action) { this.action = action; }
     public int getHealth() { return health; }
     public void setHealth(int health) { this.health = health; }
+    public double getTargetX() { return targetX; }
+    public void setTargetX(double targetX) { this.targetX = targetX; }
+    public double getTargetY() { return targetY; }
+    public void setTargetY(double targetY) { this.targetY = targetY; }
+    public double getAimAngle() { return aimAngle; }
+    public void setAimAngle(double aimAngle) { this.aimAngle = aimAngle; }
 }

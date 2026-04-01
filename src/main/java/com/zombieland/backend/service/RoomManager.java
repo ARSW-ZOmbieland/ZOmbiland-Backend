@@ -148,7 +148,62 @@ public class RoomManager {
         return roomZombies.getOrDefault(roomCode.toUpperCase(), Collections.emptyList());
     }
 
+    public synchronized void handleAttack(GameActionMessage message) {
+        String roomCode = message.getRoomCode().toUpperCase();
+        List<ZombieState> zombies = roomZombies.get(roomCode);
+        if (zombies == null) return;
+
+        double tx = message.getTargetX();
+        double ty = message.getTargetY();
+        double px = message.getX();
+        double py = message.getY();
+
+        // 1. Calculate direction vector from player to target
+        double dx = tx - px;
+        double dy = ty - py;
+        double magnitude = Math.sqrt(dx * dx + dy * dy);
+        if (magnitude < 0.01) return; // Prevent target being exactly on player
+
+        // 2. Snap to 8-directions (45 deg increments)
+        double angle = Math.atan2(dy, dx);
+        double snappedAngle = Math.round(angle / (Math.PI / 4.0)) * (Math.PI / 4.0);
+        double vx = Math.cos(snappedAngle);
+        double vy = Math.sin(snappedAngle);
+
+        // 3. Find the CLOSEST zombie along the ray within range 6.0 (Single Target)
+        ZombieState targetZombie = null;
+        double closestDist = 7.0; // Max range is 6.0
+
+        for (ZombieState zombie : zombies) {
+            double zx = zombie.getX() - px;
+            double zy = zombie.getY() - py;
+            
+            // Projection length L onto the normalized ray
+            double dot = zx * vx + zy * vy;
+            
+            // Perpendicular squared distance D^2 = |vz|^2 - L^2
+            double distSq = (zx * zx + zy * zy) - (dot * dot);
+            
+            // Hit if: in front of player, within distance 6.0, and close to line (distSq < 0.2)
+            if (dot > 0 && dot < 6.0 && distSq < 0.2) { 
+                if (dot < closestDist) {
+                    closestDist = dot;
+                    targetZombie = zombie;
+                }
+            }
+        }
+
+        // 4. Apply damage only to the closest target
+        if (targetZombie != null) {
+            targetZombie.setHealth(targetZombie.getHealth() - 34); 
+            if (targetZombie.getHealth() <= 0) {
+                zombies.remove(targetZombie);
+            }
+        }
+    }
+
     public Set<String> getAllActiveRooms() {
         return roomPlayers.keySet();
     }
 }
+
