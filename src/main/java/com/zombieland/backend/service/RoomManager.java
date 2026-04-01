@@ -27,6 +27,9 @@ public class RoomManager {
     // sessionId -> PlayerSessionInfo
     private final ConcurrentHashMap<String, PlayerSessionInfo> sessionTrackers = new ConcurrentHashMap<>();
     
+    // roomCode -> Boolean (isPaused)
+    private final ConcurrentHashMap<String, Boolean> roomPausedStates = new ConcurrentHashMap<>();
+    
     // Explicitly generated room codes
     private final Set<String> validRooms = ConcurrentHashMap.newKeySet();
 
@@ -107,16 +110,33 @@ public class RoomManager {
     }
 
     public void updatePlayerState(GameActionMessage message) {
-        String roomCode = message.getRoomCode();
+        String roomCode = message.getRoomCode().toUpperCase();
+        
+        // Manejar Pausa Global desde el servidor
+        if ("PAUSE".equals(message.getAction())) {
+            roomPausedStates.put(roomCode, true);
+        } else if ("RESUME".equals(message.getAction())) {
+            roomPausedStates.put(roomCode, false);
+        }
+
         if (roomPlayers.containsKey(roomCode)) {
             Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
             GameActionMessage existing = players.get(message.getPlayerId());
             if (existing != null) {
-                // Preserve health from server state, update only pos/action
+                // Si el mensaje es parcial (como PAUSE), preservar la posición anterior
+                if (message.getX() == null) message.setX(existing.getX());
+                if (message.getY() == null) message.setY(existing.getY());
+                if (message.getAimAngle() == null) message.setAimAngle(existing.getAimAngle());
+                
+                // Preserve health from server state
                 message.setHealth(existing.getHealth());
                 players.put(message.getPlayerId(), message);
             }
         }
+    }
+
+    public boolean isRoomPaused(String roomCode) {
+        return roomPausedStates.getOrDefault(roomCode.toUpperCase(), false);
     }
 
     public synchronized String leaveRoomBySession(String sessionId) {

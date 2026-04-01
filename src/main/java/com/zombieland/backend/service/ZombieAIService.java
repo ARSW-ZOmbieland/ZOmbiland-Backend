@@ -33,7 +33,7 @@ public class ZombieAIService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 100) // Ticks cada 100ms para mayor precisión en ataques y delay
+    @Scheduled(fixedRate = 100) // Ticks cada 100ms para mayor precisión en ataques y delay (Restaurado)
     public void updateZombies() {
         moveTickCounter++;
         boolean shouldMove = (moveTickCounter >= 8); // Movimiento real cada 800ms
@@ -42,6 +42,11 @@ public class ZombieAIService {
         Set<String> activeRooms = roomManager.getAllActiveRooms();
         
         for (String roomCode : activeRooms) {
+            // SI LA SALA ESTÁ PAUSADA, CONGELAR ZOMBIES Y DAÑO
+            if (roomManager.isRoomPaused(roomCode)) {
+                continue;
+            }
+
             List<ZombieState> zombies = roomManager.getZombiesInRoom(roomCode);
             Collection<GameActionMessage> players = roomManager.getRoomState(roomCode);
             WorldMapDTO map = roomManager.getRoomMap(roomCode);
@@ -135,7 +140,8 @@ public class ZombieAIService {
             if (player.getHealth() <= 0) continue; // No dañar muertos
 
             // Bloqueo de daño en búnker
-            if (!isWalkable(matrix, (int)player.getX(), (int)player.getY())) continue;
+            if (player.getX() == null || player.getY() == null) continue;
+            if (!isWalkable(matrix, player.getX().intValue(), player.getY().intValue())) continue;
 
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             String attackKey = zombie.getId() + ":" + player.getPlayerId();
