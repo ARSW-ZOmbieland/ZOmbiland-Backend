@@ -19,7 +19,7 @@ jobs:
           
           # RECONSTRUIR Y REINICIAR SOLO EL BACKEND
           cd ..
-          docker compose up -d --build backend
+          docker compose up -d --build --force-recreate --remove-orphans
           
           # LIMPIEZA DE IMAGENES ANTIGUAS (SIN BORRAR VOLUMENES)
           docker image prune -f
