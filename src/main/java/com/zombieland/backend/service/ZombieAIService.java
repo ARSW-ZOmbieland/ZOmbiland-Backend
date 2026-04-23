@@ -33,10 +33,10 @@ public class ZombieAIService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 100) // Ticks cada 100ms para mayor precisión en ataques y delay (Restaurado)
+    @Scheduled(fixedRate = 200) // Ticks cada 200ms para optimizar red (Antes 100ms)
     public void updateZombies() {
         moveTickCounter++;
-        boolean shouldMove = (moveTickCounter >= 8); // Movimiento real cada 800ms
+        boolean shouldMove = (moveTickCounter >= 4); // Movimiento real cada 800ms (4 * 200ms)
         if (shouldMove) moveTickCounter = 0;
 
         Set<String> activeRooms = roomManager.getAllActiveRooms();
