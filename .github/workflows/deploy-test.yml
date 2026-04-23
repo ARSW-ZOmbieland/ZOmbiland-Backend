@@ -14,13 +14,13 @@ jobs:
 
       - name: Sync Code to Test Directory
         run: |
-          mkdir -p /home/juan/ZOmbiland-Test/ZOmbiland-Backend
-          rsync -avz --exclude '.git' ./ /home/juan/ZOmbiland-Test/ZOmbiland-Backend/
+          /usr/bin/mkdir -p /home/juan/ZOmbiland-Test/ZOmbiland-Backend
+          /usr/bin/rsync -avz --exclude '.git' ./ /home/juan/ZOmbiland-Test/ZOmbiland-Backend/
 
       - name: Deploy with Docker Compose (Test)
         run: |
           cd /home/juan/ZOmbiland-Test
           # Ensure we have the latest infrastructure files from this branch
-          cp /home/juan/ZOmbiland-Test/ZOmbiland-Backend/docker-compose.yml ./docker-compose.test.yml
-          cp /home/juan/ZOmbiland-Test/ZOmbiland-Backend/nginx.conf ./nginx.test.conf
+          /usr/bin/cp /home/juan/ZOmbiland-Test/ZOmbiland-Backend/docker-compose.yml ./docker-compose.test.yml
+          /usr/bin/cp /home/juan/ZOmbiland-Test/ZOmbiland-Backend/nginx.conf ./nginx.test.conf
           docker compose -f docker-compose.test.yml up -d --build
