@@ -14,8 +14,9 @@ jobs:
           # 1. NAVEGAR AL REPO DE BACKEND
           cd ~/Proyecto-ARSW/ZOmbiland-Backend
           
-          # 2. ACTUALIZAR EL CODIGO
-          git pull
+          # 2. ACTUALIZAR EL CODIGO (FORZADO)
+          git fetch origin release
+          git reset --hard origin/release
           
           # 3. COPIAR ARCHIVOS DE INFRAESTRUCTURA A LA RAÍZ
           cp docker-compose.yml ..
