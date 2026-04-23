@@ -23,11 +23,7 @@ jobs:
           cp nginx.conf ..
           cp tailscale-serve-config.json ..
           
-          # 4. ACTUALIZAR TAILSCALE SERVE
-          # Usamos --all para asegurar que se aplique a todo el nodo
-          tailscale serve set-config --all tailscale-serve-config.json
-          
-          # 5. RECONSTRUIR Y REINICIAR TODO EL PROYECTO
+          # 4. RECONSTRUIR Y REINICIAR TODO EL PROYECTO
           cd ..
           docker compose up -d --build --force-recreate --remove-orphans
           
