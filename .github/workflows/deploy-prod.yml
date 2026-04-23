@@ -24,4 +24,4 @@ jobs:
           /usr/bin/cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/docker-compose.prod.yml ./docker-compose.prod.yml
           /usr/bin/cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/nginx.prod.conf ./nginx.prod.conf
           # Run with a different project name to avoid conflicts
-          docker compose -p zombieland-prod -f docker-compose.prod.yml up -d --build
+          /usr/bin/docker compose -p zombieland-prod -f docker-compose.prod.yml up -d --build
