@@ -25,7 +25,7 @@ jobs:
           
           # 4. ACTUALIZAR TAILSCALE SERVE
           # Usamos --all para asegurar que se aplique a todo el nodo
-          tailscale serve set-config --all < tailscale-serve-config.json
+          tailscale serve set-config --all tailscale-serve-config.json
           
           # 5. RECONSTRUIR Y REINICIAR TODO EL PROYECTO
           cd ..
