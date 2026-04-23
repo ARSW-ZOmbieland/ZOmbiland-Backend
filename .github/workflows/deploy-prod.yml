@@ -1,0 +1,27 @@
+name: Deploy Production (Main)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Sync Code to Production Directory
+        run: |
+          mkdir -p /home/juan/ZOmbiland-Prod/ZOmbiland-Backend
+          rsync -avz --exclude '.git' ./ /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/
+
+      - name: Deploy with Docker Compose (Prod)
+        run: |
+          cd /home/juan/ZOmbiland-Prod
+          # Ensure we have the latest infrastructure files from this branch
+          cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/docker-compose.prod.yml ./docker-compose.prod.yml
+          cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/nginx.prod.conf ./nginx.prod.conf
+          # Run with a different project name to avoid conflicts
+          docker compose -p zombieland-prod -f docker-compose.prod.yml up -d --build

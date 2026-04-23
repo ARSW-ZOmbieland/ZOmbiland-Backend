@@ -1,0 +1,69 @@
+services:
+  postgres-prod:
+    image: postgres:15
+    container_name: zombieland-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: zombieland
+      POSTGRES_PASSWORD: zombieland_password
+      POSTGRES_DB: zombieland_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata-prod:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zombieland -d zombieland_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-prod:
+    build:
+      context: ./ZOmbiland-Backend
+      dockerfile: Dockerfile
+    container_name: zombieland-backend-prod
+    restart: unless-stopped
+    depends_on:
+      postgres-prod:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-prod:5432/zombieland_db
+      SPRING_DATASOURCE_USERNAME: zombieland
+      SPRING_DATASOURCE_PASSWORD: zombieland_password
+      APP_FRONTEND_URL: https://server-sabio.tail2474b3.ts.net
+      APP_CORS_ALLOWED_ORIGINS: http://localhost:5173,http://localhost,https://server-sabio.tail2474b3.ts.net
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+    ports:
+      - "9080:8080"
+
+  frontend-prod:
+    build:
+      context: ./ZOmbiland-Frontend
+      dockerfile: Dockerfile.dev
+    container_name: zombiland-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "6173:5173"
+    volumes:
+      - ./ZOmbiland-Frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=https://server-sabio.tail2474b3.ts.net
+    command: sh -c "npm install && npm run dev -- --host"
+
+  nginx-prod:
+    image: nginx:alpine
+    container_name: zombieland-nginx-prod
+    restart: unless-stopped
+    volumes:
+      - ./nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./ZOmbiland-Frontend/public:/usr/share/nginx/html:ro
+    ports:
+      - "8081:80"
+    depends_on:
+      - frontend-prod
+      - backend-prod
+
+volumes:
+  pgdata-prod:
