@@ -1,0 +1,21 @@
+{
+  "version": "1",
+  "services": {
+    "node": {
+      "tcp": {
+        "443": {
+          "https": true
+        }
+      },
+      "web": {
+        "server-sabio.tail2474b3.ts.net:443": {
+          "handlers": {
+            "/": {
+              "proxy": "http://127.0.0.1:80"
+            }
+          }
+        }
+      }
+    }
+  }
+}
