@@ -19,9 +19,10 @@ jobs:
 
       - name: Deploy with Docker Compose (Prod)
         run: |
+          /usr/bin/mkdir -p /home/juan/ZOmbiland-Prod
           cd /home/juan/ZOmbiland-Prod
-          # Ensure we have the latest infrastructure files from this branch
+          # Asegurar que tenemos los archivos de infraestructura actualizados
           /usr/bin/cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/docker-compose.prod.yml ./docker-compose.prod.yml
           /usr/bin/cp /home/juan/ZOmbiland-Prod/ZOmbiland-Backend/nginx.prod.conf ./nginx.prod.conf
-          # Run with a different project name to avoid conflicts
-          /usr/bin/docker compose -p zombieland-prod -f docker-compose.prod.yml up -d --build
+          # Ejecutar con un nombre de proyecto diferente y reiniciar backend y proxy
+          /usr/bin/docker compose -p zombieland-prod -f docker-compose.prod.yml up -d --build backend-prod nginx-prod
