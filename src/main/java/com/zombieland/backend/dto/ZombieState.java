@@ -7,18 +7,20 @@ public class ZombieState {
     private String direction;
     private boolean attacking;
     private int health = 100;
+    private String type = "comun"; // Default type
 
     public ZombieState() {
         this.health = 100;
     }
 
-    public ZombieState(String id, double x, double y, String direction) {
+    public ZombieState(String id, double x, double y, String direction, String type) {
         this.id = id;
         this.x = x;
         this.y = y;
         this.direction = direction;
         this.attacking = false;
         this.health = 100;
+        this.type = type;
     }
 
     public String getId() { return id; }
@@ -33,4 +35,6 @@ public class ZombieState {
     public void setAttacking(boolean attacking) { this.attacking = attacking; }
     public int getHealth() { return health; }
     public void setHealth(int health) { this.health = health; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
 }

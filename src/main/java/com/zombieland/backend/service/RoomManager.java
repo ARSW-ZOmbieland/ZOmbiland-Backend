@@ -68,7 +68,8 @@ public class RoomManager {
                 ry = (int)map.getStartY() + (i / 3);
             }
             
-            zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo"));
+            String type = (i % 5 == 0) ? "chasqueador" : "comun";
+            zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo", type));
         }
         roomZombies.put(code, zombies);
     }
