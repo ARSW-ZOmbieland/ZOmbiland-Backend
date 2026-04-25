@@ -195,6 +195,7 @@ public class ZombieAIService {
         if (tile >= 20 && tile <= 22) return true; // Bushes
         if (tile == 72) return true;              // Street lights
         if (tile == 100) return true;             // Medkit
+        if (tile == 101) return true;             // Ammo Pickup
         
         return false; // Solid objects are >= 10 and not in the "walkable exceptions"
     }

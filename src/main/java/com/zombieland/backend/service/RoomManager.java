@@ -130,8 +130,9 @@ public class RoomManager {
                 if (message.getY() == null) message.setY(existing.getY());
                 if (message.getAimAngle() == null) message.setAimAngle(existing.getAimAngle());
                 
-                // Preserve health from server state
+                // Preserve server state (health & ammo)
                 message.setHealth(existing.getHealth());
+                message.setAmmo(existing.getAmmo());
                 
                 // --- ITEM COLLECTION CHECK ---
                 WorldMapDTO map = roomMaps.get(roomCode);
@@ -141,7 +142,8 @@ public class RoomManager {
                     int[][] matrix = map.getMatrix();
                     
                     if (py >= 0 && py < matrix.length && px >= 0 && px < matrix[0].length) {
-                        if (matrix[py][px] == 100) { // Medkit
+                        int tile = matrix[py][px];
+                        if (tile == 100) { // Medkit
                             System.out.println(">> PLAYER COLLECTED MEDKIT: " + message.getPlayerId());
                             matrix[py][px] = 0; // Clear tile (back to ground)
                             message.setHealth(100); // HEAL FULL
@@ -150,7 +152,19 @@ public class RoomManager {
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, message);
                             
-                            // Broadcast map update (specific tile change)
+                            // Broadcast map update
+                            String mapUpdateTopic = "/topic/game.map." + roomCode;
+                            messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(px, py, 0));
+                        } else if (tile == 101) { // Ammo Pickup
+                            System.out.println(">> PLAYER COLLECTED AMMO: " + message.getPlayerId());
+                            matrix[py][px] = 0; // Clear tile
+                            message.setAmmo(message.getAmmo() + 30); // Add 30 bullets
+                            
+                            // Broadcast ammo update
+                            String stateTopic = "/topic/game.state." + roomCode;
+                            messagingTemplate.convertAndSend(stateTopic, message);
+                            
+                            // Broadcast map update
                             String mapUpdateTopic = "/topic/game.map." + roomCode;
                             messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(px, py, 0));
                         }
@@ -197,6 +211,22 @@ public class RoomManager {
 
     public synchronized void handleAttack(GameActionMessage message) {
         String roomCode = message.getRoomCode().toUpperCase();
+        
+        // 0. Check Ammo from server state
+        Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
+        if (players == null) return;
+        GameActionMessage serverState = players.get(message.getPlayerId());
+        if (serverState == null || serverState.getAmmo() <= 0) {
+            System.out.println(">> ATTACK BLOCKED: No ammo for " + message.getPlayerId());
+            message.setAmmo(0); // Sync client to 0
+            return;
+        }
+
+        // 1. Consume 1 Bullet
+        serverState.setAmmo(serverState.getAmmo() - 1);
+        message.setAmmo(serverState.getAmmo()); // Send back updated ammo
+        message.setHealth(serverState.getHealth()); // Maintain server health
+
         List<ZombieState> zombies = roomZombies.get(roomCode);
         if (zombies == null) return;
 

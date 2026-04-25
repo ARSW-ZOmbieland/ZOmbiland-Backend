@@ -10,6 +10,7 @@ public class GameActionMessage {
     private Double targetX;
     private Double targetY;
     private Double aimAngle;
+    private int ammo = 30;
 
     public GameActionMessage() {}
 
@@ -20,6 +21,7 @@ public class GameActionMessage {
         this.y = y;
         this.action = action;
         this.health = 100;
+        this.ammo = 30;
     }
 
     public String getPlayerId() { return playerId; }
@@ -40,4 +42,6 @@ public class GameActionMessage {
     public void setTargetY(Double targetY) { this.targetY = targetY; }
     public Double getAimAngle() { return aimAngle; }
     public void setAimAngle(Double aimAngle) { this.aimAngle = aimAngle; }
+    public int getAmmo() { return ammo; }
+    public void setAmmo(int ammo) { this.ammo = ammo; }
 }
