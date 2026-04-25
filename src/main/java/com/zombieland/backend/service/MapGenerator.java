@@ -104,6 +104,20 @@ public class MapGenerator {
             }
         }
 
+        // Place 20 random Ammo Pickups (ID 101) on walkable ground
+        for (int a = 0; a < 20; a++) {
+            boolean found = false;
+            for (int attempts = 0; attempts < 100; attempts++) {
+                int mx = rand.nextInt(size);
+                int my = rand.nextInt(size);
+                if (matrix[my][mx] >= 0 && matrix[my][mx] <= 7) {
+                    matrix[my][mx] = 101;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
         // Frame the edges of the map with Police Barricades (ID 90)
         for (int i = 0; i < size; i++) {
             matrix[0][i] = 90;           // Top edge
