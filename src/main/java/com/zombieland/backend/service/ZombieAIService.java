@@ -85,8 +85,12 @@ public class ZombieAIService {
             }
         }
 
-        // LÓGICA DE VISIÓN: Si no hay nadie a menos de 6 unidades, vagar aleatoriamente
-        if (target == null || minDistance > 6.0) {
+        // LÓGICA DE VISIÓN DIFERENCIADA
+        boolean isChasqueador = "chasqueador".equals(zombie.getType());
+
+        // Si es Chasqueador, solo persigue si está cerca (6 unidades)
+        // Si es Común, persigue siempre que haya un objetivo
+        if (target == null || (isChasqueador && minDistance > 6.0)) {
             performRandomWander(zombie, matrix);
             return;
         }
