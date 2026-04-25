@@ -13,9 +13,11 @@ public class RoomManager {
     private final ConcurrentHashMap<String, WorldMapDTO> roomMaps = new ConcurrentHashMap<>();
     
     private final MapGenerator mapGenerator;
+    private final org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate;
 
-    public RoomManager(MapGenerator mapGenerator) {
+    public RoomManager(MapGenerator mapGenerator, org.springframework.messaging.simp.SimpMessagingTemplate messagingTemplate) {
         this.mapGenerator = mapGenerator;
+        this.messagingTemplate = messagingTemplate;
     }
 
     // roomCode -> (playerId -> GameActionMessage)
@@ -130,6 +132,31 @@ public class RoomManager {
                 
                 // Preserve health from server state
                 message.setHealth(existing.getHealth());
+                
+                // --- ITEM COLLECTION CHECK ---
+                WorldMapDTO map = roomMaps.get(roomCode);
+                if (map != null && message.getX() != null && message.getY() != null) {
+                    int px = message.getX().intValue();
+                    int py = message.getY().intValue();
+                    int[][] matrix = map.getMatrix();
+                    
+                    if (py >= 0 && py < matrix.length && px >= 0 && px < matrix[0].length) {
+                        if (matrix[py][px] == 100) { // Medkit
+                            System.out.println(">> PLAYER COLLECTED MEDKIT: " + message.getPlayerId());
+                            matrix[py][px] = 0; // Clear tile (back to ground)
+                            message.setHealth(100); // HEAL FULL
+                            
+                            // Broadcast health update
+                            String stateTopic = "/topic/game.state." + roomCode;
+                            messagingTemplate.convertAndSend(stateTopic, message);
+                            
+                            // Broadcast map update (specific tile change)
+                            String mapUpdateTopic = "/topic/game.map." + roomCode;
+                            messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(px, py, 0));
+                        }
+                    }
+                }
+                
                 players.put(message.getPlayerId(), message);
             }
         }
