@@ -33,19 +33,15 @@ public class ZombieAIService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 200) // Ticks cada 200ms para optimizar red (Antes 100ms)
+    @Scheduled(fixedRate = 200) // Ticks cada 200ms
     public void updateZombies() {
         moveTickCounter++;
-        boolean shouldMove = (moveTickCounter >= 4); // Movimiento real cada 800ms (4 * 200ms)
-        if (shouldMove) moveTickCounter = 0;
+        if (moveTickCounter > 100) moveTickCounter = 1; // Reset prevent overflow
 
         Set<String> activeRooms = roomManager.getAllActiveRooms();
         
         for (String roomCode : activeRooms) {
-            // SI LA SALA ESTÁ PAUSADA, CONGELAR ZOMBIES Y DAÑO
-            if (roomManager.isRoomPaused(roomCode)) {
-                continue;
-            }
+            if (roomManager.isRoomPaused(roomCode)) continue;
 
             List<ZombieState> zombies = roomManager.getZombiesInRoom(roomCode);
             Collection<GameActionMessage> players = roomManager.getRoomState(roomCode);
@@ -54,17 +50,21 @@ public class ZombieAIService {
             if (zombies.isEmpty() || players.isEmpty() || map == null) continue;
 
             for (ZombieState zombie : zombies) {
-                // Actualizar estado visual de ataque (resetear tras 600ms)
+                // Actualizar estado visual de ataque
                 long lastVisual = zombieVisualAttackTime.getOrDefault(zombie.getId(), 0L);
                 zombie.setAttacking(System.currentTimeMillis() - lastVisual < 600);
 
-                if (shouldMove) {
+                // Lógica de velocidad diferenciada
+                boolean isChasqueador = "chasqueador".equals(zombie.getType());
+                int moveRate = isChasqueador ? 2 : 4; // Chasqueador: 400ms, Comun: 800ms
+
+                if (moveTickCounter % moveRate == 0) {
                     moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
                 }
                 checkAndDamagePlayers(zombie, players, roomCode, map.getMatrix());
             }
 
-            // Broadcast the new zombie positions to the room
+            // Broadcast
             String topic = "/topic/game.zombies." + roomCode;
             messagingTemplate.convertAndSend(topic, zombies);
         }
