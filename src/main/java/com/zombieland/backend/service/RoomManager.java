@@ -219,6 +219,7 @@ public class RoomManager {
         if (serverState == null || serverState.getAmmo() <= 0) {
             System.out.println(">> ATTACK BLOCKED: No ammo for " + message.getPlayerId());
             message.setAmmo(0); // Sync client to 0
+            message.setAction("NO_AMMO"); // Change action to prevent animation
             return;
         }
 
