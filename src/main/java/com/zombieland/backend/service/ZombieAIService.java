@@ -74,9 +74,9 @@ public class ZombieAIService {
         GameActionMessage target = null;
         double minDistance = Double.MAX_VALUE;
 
-        // Find closest player that is alive
+        // Buscar al jugador más cercano que esté vivo
         for (GameActionMessage player : players) {
-            if (player.getHealth() <= 0) continue; // Ignorar muertos
+            if (player.getHealth() <= 0) continue; 
 
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             if (dist < minDistance) {
@@ -85,16 +85,16 @@ public class ZombieAIService {
             }
         }
 
-        if (target == null) return;
+        // LÓGICA DE VISIÓN: Si no hay nadie a menos de 6 unidades, vagar aleatoriamente
+        if (target == null || minDistance > 6.0) {
+            performRandomWander(zombie, matrix);
+            return;
+        }
 
         double dx = target.getX() - zombie.getX();
         double dy = target.getY() - zombie.getY();
 
         if (dx == 0 && dy == 0) return;
-
-        double nextX = zombie.getX();
-        double nextY = zombie.getY();
-        String newDir = zombie.getDirection();
 
         // Try to move on the axis with the largest distance first (Greedy)
         if (Math.abs(dx) > Math.abs(dy)) {
@@ -105,6 +105,19 @@ public class ZombieAIService {
             if (!tryMoveY(zombie, dy, matrix)) {
                 tryMoveX(zombie, dx, matrix);
             }
+        }
+    }
+
+    private void performRandomWander(ZombieState zombie, int[][] matrix) {
+        // Probabilidad de moverse al azar (25% cada vez que le toca moverse)
+        if (Math.random() > 0.25) return;
+
+        int randomDir = (int)(Math.random() * 4);
+        switch(randomDir) {
+            case 0: tryMoveX(zombie, 1, matrix); break;  // Derecha
+            case 1: tryMoveX(zombie, -1, matrix); break; // Izquierda
+            case 2: tryMoveY(zombie, 1, matrix); break;  // Abajo
+            case 3: tryMoveY(zombie, -1, matrix); break; // Arriba
         }
     }
 
