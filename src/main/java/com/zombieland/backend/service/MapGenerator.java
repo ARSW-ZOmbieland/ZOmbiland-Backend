@@ -90,6 +90,20 @@ public class MapGenerator {
             }
         }
 
+        // Place 15 random Medkits (ID 100) on walkable ground
+        for (int m = 0; m < 15; m++) {
+            boolean found = false;
+            for (int attempts = 0; attempts < 100; attempts++) {
+                int mx = rand.nextInt(size);
+                int my = rand.nextInt(size);
+                if (matrix[my][mx] >= 0 && matrix[my][mx] <= 7) {
+                    matrix[my][mx] = 100;
+                    found = true;
+                    break;
+                }
+            }
+        }
+
         // Frame the edges of the map with Police Barricades (ID 90)
         for (int i = 0; i < size; i++) {
             matrix[0][i] = 90;           // Top edge
