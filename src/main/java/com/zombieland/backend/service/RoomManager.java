@@ -334,8 +334,10 @@ public class RoomManager {
                     if (now - diedAt >= 30000) { // 30 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
-                            player.setX((double)map.getStartX());
-                            player.setY((double)map.getStartY());
+                            // Revive exactly where they died (or at start if position was missing)
+                            if (player.getX() == null) player.setX((double)map.getStartX());
+                            if (player.getY() == null) player.setY((double)map.getStartY());
+                            
                             player.setHealth(100);
                             player.setAmmo(30);
                             player.setAction("RESPAWN");
@@ -344,7 +346,7 @@ public class RoomManager {
                             
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, player);
-                            System.out.println(">> PLAYER RESPAWNED: " + player.getPlayerId());
+                            System.out.println(">> PLAYER RESPAWNED (AT SPOT): " + player.getPlayerId());
                         }
                     }
                 } else {
