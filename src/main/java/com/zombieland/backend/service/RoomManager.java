@@ -153,9 +153,12 @@ public class RoomManager {
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, message);
                             
-                            // Broadcast map update
+                            // Broadcast map update (clear old)
                             String mapUpdateTopic = "/topic/game.map." + roomCode;
                             messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(px, py, 0));
+                            
+                            // Respawn Medkit in new location
+                            respawnItem(roomCode, 100);
                         } else if (tile == 101) { // Ammo Pickup
                             System.out.println(">> PLAYER COLLECTED AMMO: " + message.getPlayerId());
                             matrix[py][px] = 0; // Clear tile
@@ -165,9 +168,12 @@ public class RoomManager {
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, message);
                             
-                            // Broadcast map update
+                            // Broadcast map update (clear old)
                             String mapUpdateTopic = "/topic/game.map." + roomCode;
                             messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(px, py, 0));
+                            
+                            // Respawn Ammo in new location
+                            respawnItem(roomCode, 101);
                         }
                     }
                 }
@@ -283,6 +289,29 @@ public class RoomManager {
 
     public Set<String> getAllActiveRooms() {
         return roomPlayers.keySet();
+    }
+
+    private void respawnItem(String roomCode, int itemType) {
+        WorldMapDTO map = roomMaps.get(roomCode);
+        if (map == null) return;
+        int[][] matrix = map.getMatrix();
+        int size = matrix.length;
+        java.util.Random rand = new java.util.Random();
+        
+        for (int attempts = 0; attempts < 100; attempts++) {
+            int nx = rand.nextInt(size);
+            int ny = rand.nextInt(size);
+            // Check if it's walkable ground (0-7) and not already an item
+            if (ny >= 0 && ny < size && nx >= 0 && nx < size && matrix[ny][nx] >= 0 && matrix[ny][nx] <= 7) {
+                matrix[ny][nx] = itemType;
+                
+                // Broadcast new map update
+                String mapUpdateTopic = "/topic/game.map." + roomCode;
+                messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(nx, ny, itemType));
+                System.out.println(">> ITEM RESPAWNED (" + itemType + ") at [" + nx + "," + ny + "]");
+                break;
+            }
+        }
     }
 }
 
