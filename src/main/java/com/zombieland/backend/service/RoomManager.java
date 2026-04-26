@@ -135,9 +135,10 @@ public class RoomManager {
                 if (message.getY() == null) message.setY(existing.getY());
                 if (message.getAimAngle() == null) message.setAimAngle(existing.getAimAngle());
                 
-                // Preserve server state (health & ammo)
+                // Preserve server state (health, ammo, location)
                 message.setHealth(existing.getHealth());
                 message.setAmmo(existing.getAmmo());
+                if (message.getLocation() == null) message.setLocation(existing.getLocation());
                 
                 // --- ITEM COLLECTION CHECK ---
                 WorldMapDTO map = roomMaps.get(roomCode);
