@@ -3,6 +3,7 @@ package com.zombieland.backend.service;
 import com.zombieland.backend.dto.GameActionMessage;
 import com.zombieland.backend.dto.WorldMapDTO;
 import com.zombieland.backend.dto.ZombieState;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +35,9 @@ public class RoomManager {
     
     // Explicitly generated room codes
     private final Set<String> validRooms = ConcurrentHashMap.newKeySet();
+
+    // roomCode:playerId -> Timestamp of death
+    private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
     public void createRoom(String roomCode) {
         String code = roomCode.toUpperCase();
@@ -310,6 +314,42 @@ public class RoomManager {
                 messagingTemplate.convertAndSend(mapUpdateTopic, new com.zombieland.backend.dto.MapUpdateDTO(nx, ny, itemType));
                 System.out.println(">> ITEM RESPAWNED (" + itemType + ") at [" + nx + "," + ny + "]");
                 break;
+            }
+        }
+    }
+
+    @Scheduled(fixedRate = 1000)
+    public void processRespawns() {
+        long now = System.currentTimeMillis();
+        for (String roomCode : roomPlayers.keySet()) {
+            Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
+            if (players == null) continue;
+
+            for (GameActionMessage player : players.values()) {
+                if (player.getHealth() <= 0) {
+                    String timerKey = roomCode + ":" + player.getPlayerId();
+                    deathTimers.putIfAbsent(timerKey, now);
+                    long diedAt = deathTimers.get(timerKey);
+                    
+                    if (now - diedAt >= 30000) { // 30 seconds
+                        WorldMapDTO map = roomMaps.get(roomCode);
+                        if (map != null) {
+                            player.setX((double)map.getStartX());
+                            player.setY((double)map.getStartY());
+                            player.setHealth(100);
+                            player.setAmmo(30);
+                            player.setAction("RESPAWN");
+                            
+                            deathTimers.remove(timerKey);
+                            
+                            String stateTopic = "/topic/game.state." + roomCode;
+                            messagingTemplate.convertAndSend(stateTopic, player);
+                            System.out.println(">> PLAYER RESPAWNED: " + player.getPlayerId());
+                        }
+                    }
+                } else {
+                    deathTimers.remove(roomCode + ":" + player.getPlayerId());
+                }
             }
         }
     }
