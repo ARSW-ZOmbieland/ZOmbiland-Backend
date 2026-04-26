@@ -51,7 +51,7 @@ public class RoomManager {
         Random rand = new Random();
         int[][] matrix = map.getMatrix();
         
-        for (int i = 1; i <= 20; i++) {
+        for (int i = 1; i <= 40; i++) {
             int rx = 0, ry = 0;
             boolean found = false;
             // Seek a walkable position (Ground tiles 0-7)
@@ -72,7 +72,8 @@ public class RoomManager {
                 ry = (int)map.getStartY() + (i / 3);
             }
             
-            String type = (i % 5 == 0) ? "chasqueador" : "comun";
+            String[] types = {"comun", "chasqueador", "llorona", "tanke", "hunter"};
+            String type = types[rand.nextInt(types.length)];
             zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo", type));
         }
         roomZombies.put(code, zombies);
