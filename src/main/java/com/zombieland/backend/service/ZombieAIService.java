@@ -26,6 +26,9 @@ public class ZombieAIService {
     // zombieId + playerId -> timestamp when pursuit/wind-up started
     private final java.util.concurrent.ConcurrentHashMap<String, Long> attackStartedAt = new java.util.concurrent.ConcurrentHashMap<>();
 
+    // zombieId -> lastTeleportTimestamp
+    private final java.util.concurrent.ConcurrentHashMap<String, Long> lastTeleportTime = new java.util.concurrent.ConcurrentHashMap<>();
+
     private int moveTickCounter = 0;
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
@@ -55,8 +58,18 @@ public class ZombieAIService {
                 zombie.setAttacking(System.currentTimeMillis() - lastVisual < 600);
 
                 // Lógica de velocidad diferenciada
-                boolean isChasqueador = "chasqueador".equals(zombie.getType());
-                int moveRate = isChasqueador ? 2 : 4; // Chasqueador: 400ms, Comun: 800ms
+                String type = zombie.getType();
+                int moveRate;
+                
+                if ("hunter".equals(type) || "chasqueador".equals(type)) {
+                    moveRate = 2; // Rápido: 400ms
+                } else if ("tanke".equals(type)) {
+                    moveRate = 6; // Muy Lento: 1.2s
+                } else if ("llorona".equals(type)) {
+                    moveRate = 5; // Lento: 1.0s
+                } else {
+                    moveRate = 4; // Normal (Comun): 800ms
+                }
 
                 if (moveTickCounter % moveRate == 0) {
                     moveZombieTowardsClosestPlayer(zombie, players, map.getMatrix());
@@ -86,11 +99,34 @@ public class ZombieAIService {
         }
 
         // LÓGICA DE VISIÓN DIFERENCIADA
-        boolean isChasqueador = "chasqueador".equals(zombie.getType());
+        String type = zombie.getType();
+        boolean isChasqueador = "chasqueador".equals(type);
+        boolean isHunter = "hunter".equals(type);
 
-        // Si es Chasqueador, solo persigue si está cerca (6 unidades)
-        // Si es Común, persigue siempre que haya un objetivo
-        if (target == null || (isChasqueador && minDistance > 6.0)) {
+        // Si no hay nadie vivo en el mapa
+        if (target == null) {
+            performRandomWander(zombie, matrix);
+            return;
+        }
+
+        // LÓGICA ESPECIAL HUNTER: Teletransporte
+        if (isHunter && minDistance <= 6.0) {
+            long now = System.currentTimeMillis();
+            long lastTeleport = lastTeleportTime.getOrDefault(zombie.getId(), 0L);
+            
+            // Cooldown de 3 segundos para teletransporte
+            if (now - lastTeleport >= 3000) {
+                zombie.setX(target.getX());
+                zombie.setY(target.getY());
+                zombie.setDirection("abajo"); // Reset direction after jump
+                lastTeleportTime.put(zombie.getId(), now);
+                System.out.println(">> HUNTER TELEPORTED to " + target.getPlayerId());
+                return; // Ya se movió por este tick
+            }
+        }
+
+        // Si es Chasqueador o Hunter (tras el salto), solo persigue si está cerca (6 unidades)
+        if ((isChasqueador || isHunter) && minDistance > 6.0) {
             performRandomWander(zombie, matrix);
             return;
         }
@@ -181,8 +217,20 @@ public class ZombieAIService {
                 if (now - lastDamage >= 1000) {
                     int currentHealth = player.getHealth();
                     if (currentHealth > 0) {
-                        // Requisito 3: Daño variable (20 si está encima, 8 si está al lado)
-                        int damageAmount = (dist < 0.2) ? 20 : 8;
+                        // Requisito 3: Daño variable según TIPO y DISTANCIA
+                        String type = zombie.getType();
+                        int damageAmount;
+
+                        if ("tanke".equals(type)) {
+                            damageAmount = (dist < 0.2) ? 40 : 15;
+                        } else if ("hunter".equals(type)) {
+                            damageAmount = (dist < 0.2) ? 15 : 5;
+                        } else if ("llorona".equals(type)) {
+                            damageAmount = 30;
+                        } else {
+                            damageAmount = (dist < 0.2) ? 20 : 8; // Comun y Chasqueador
+                        }
+
                         int newHealth = Math.max(0, currentHealth - damageAmount);
                         
                         player.setHealth(newHealth);
