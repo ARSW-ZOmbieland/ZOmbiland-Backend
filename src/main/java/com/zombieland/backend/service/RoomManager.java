@@ -72,8 +72,15 @@ public class RoomManager {
                 ry = (int)map.getStartY() + (i / 3);
             }
             
-            String[] types = {"comun", "chasqueador", "llorona", "tanke", "hunter"};
-            String type = types[rand.nextInt(types.length)];
+            // Temporarily favoring Hunters for testing (50% chance)
+            String type;
+            int chance = rand.nextInt(100);
+            if (chance < 50) {
+                type = "hunter";
+            } else {
+                String[] others = {"comun", "chasqueador", "llorona", "tanke"};
+                type = others[rand.nextInt(others.length)];
+            }
             zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo", type));
         }
         roomZombies.put(code, zombies);
