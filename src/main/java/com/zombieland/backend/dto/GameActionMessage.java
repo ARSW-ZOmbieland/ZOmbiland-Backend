@@ -11,6 +11,7 @@ public class GameActionMessage {
     private Double targetY;
     private Double aimAngle;
     private int ammo = 30;
+    private String location = "world";
 
     public GameActionMessage() {}
 
@@ -22,6 +23,7 @@ public class GameActionMessage {
         this.action = action;
         this.health = 100;
         this.ammo = 30;
+        this.location = "world";
     }
 
     public String getPlayerId() { return playerId; }
@@ -44,4 +46,6 @@ public class GameActionMessage {
     public void setAimAngle(Double aimAngle) { this.aimAngle = aimAngle; }
     public int getAmmo() { return ammo; }
     public void setAmmo(int ammo) { this.ammo = ammo; }
+    public String getLocation() { return location; }
+    public void setLocation(String location) { this.location = location; }
 }
