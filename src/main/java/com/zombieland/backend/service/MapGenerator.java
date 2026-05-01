@@ -11,7 +11,7 @@ public class MapGenerator {
     /**
      * Generates a 64x64 random map with tiles 0-7 and two distant bunker doors (10).
      */
-    public WorldMapDTO generateMap() {
+    public WorldMapDTO generateMap(String mode) {
         int size = 64;
         int[][] matrix = new int[size][size];
         Random rand = new Random();
@@ -127,8 +127,9 @@ public class MapGenerator {
         }
 
         // Pick 4 door points ensuring they are far apart
-        int[][] doors = new int[4][2];
-        for (int i = 0; i < 4; i++) {
+        int numDoors = "TORNEO".equals(mode) ? 4 : 2;
+        int[][] doors = new int[numDoors][2];
+        for (int i = 0; i < numDoors; i++) {
             boolean valid;
             do {
                 valid = true;
@@ -155,7 +156,7 @@ public class MapGenerator {
         
         // Add all 4 doors to the DTO
         List<int[]> doorList = new ArrayList<>();
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < numDoors; i++) {
             doorList.add(new int[]{doors[i][0], doors[i][1]});
         }
         dto.setDoors(doorList);

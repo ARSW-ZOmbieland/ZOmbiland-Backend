@@ -44,14 +44,17 @@ public class RoomManager {
 
     public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
+        String finalMode = mode != null ? mode.toUpperCase() : "TRADICIONAL";
         validRooms.add(code);
-        roomModes.put(code, mode != null ? mode.toUpperCase() : "TRADICIONAL");
+        roomModes.put(code, finalMode);
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
-        WorldMapDTO map = mapGenerator.generateMap();
+        WorldMapDTO map = mapGenerator.generateMap(finalMode);
         roomMaps.putIfAbsent(code, map);
         
-        // Spawn 20 Zombies distributed across the 64x64 map
         List<ZombieState> zombies = new ArrayList<>();
+        
+        // Spawn Zombies only if NOT in Torneo mode
+        if (!"TORNEO".equals(finalMode)) {
         Random rand = new Random();
         int[][] matrix = map.getMatrix();
         
@@ -96,6 +99,8 @@ public class RoomManager {
             }
             zombies.add(newZombie);
         }
+        } // Cierre del if de zombies
+        
         roomZombies.put(code, zombies);
     }
 
