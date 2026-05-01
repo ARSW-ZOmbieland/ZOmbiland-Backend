@@ -86,7 +86,11 @@ public class RoomManager {
             } else {
                 type = "llorona";
             }
-            zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo", type));
+            ZombieState newZombie = new ZombieState("zombie-" + i, rx, ry, "abajo", type);
+            if ("tanke".equals(type)) {
+                newZombie.setHealth(680); // 20 disparos de 34 cada uno
+            }
+            zombies.add(newZombie);
         }
         roomZombies.put(code, zombies);
     }

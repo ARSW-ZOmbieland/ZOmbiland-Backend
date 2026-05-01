@@ -129,9 +129,10 @@ public class ZombieAIService {
         }
 
         // LÓGICA DE VISIÓN Y PERSECUCIÓN
+        boolean isGlobalFollower = "comun".equals(type) || "tanke".equals(type);
         boolean pursuing = isPursuing.getOrDefault(zombie.getId(), false);
 
-        if (!pursuing) {
+        if (!isGlobalFollower && !pursuing) {
             if (minDistance <= 6.0) {
                 isPursuing.put(zombie.getId(), true);
                 System.out.println(">> ZOMBIE " + type + " SPOTTED PLAYER! Pursuit started.");
@@ -141,9 +142,8 @@ public class ZombieAIService {
             }
         }
 
-        // LÓGICA DE PÉRDIDA DE VISIÓN (Todos excepto el Tanke)
-        // El Tanke es el único que te sigue "sin importar qué" una vez detectado
-        if (!"tanke".equals(type) && minDistance > 8.0) {
+        // LÓGICA DE PÉRDIDA DE VISIÓN (Solo para los que no son seguidores globales)
+        if (!isGlobalFollower && minDistance > 8.0) {
             isPursuing.put(zombie.getId(), false);
             performRandomWander(zombie, matrix);
             return;
