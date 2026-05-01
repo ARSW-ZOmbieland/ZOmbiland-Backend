@@ -39,9 +39,13 @@ public class RoomManager {
     // roomCode:playerId -> Timestamp of death
     private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
-    public void createRoom(String roomCode) {
+    // roomCode -> mode ("TRADICIONAL" or "TORNEO")
+    private final ConcurrentHashMap<String, String> roomModes = new ConcurrentHashMap<>();
+
+    public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
         validRooms.add(code);
+        roomModes.put(code, mode != null ? mode.toUpperCase() : "TRADICIONAL");
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
         WorldMapDTO map = mapGenerator.generateMap();
         roomMaps.putIfAbsent(code, map);
@@ -97,6 +101,10 @@ public class RoomManager {
 
     public WorldMapDTO getRoomMap(String roomCode) {
         return roomMaps.get(roomCode.toUpperCase());
+    }
+
+    public String getRoomMode(String roomCode) {
+        return roomModes.getOrDefault(roomCode.toUpperCase(), "TRADICIONAL");
     }
 
     public boolean roomExists(String roomCode) {

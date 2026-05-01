@@ -126,19 +126,40 @@ public class MapGenerator {
             matrix[i][size - 1] = 90;    // Right edge
         }
 
-        // Pick start and end points ensuring they are far apart
-        int startX, startY, endX, endY;
-        do {
-            startX = rand.nextInt(size);
-            startY = rand.nextInt(size);
-            endX = rand.nextInt(size);
-            endY = rand.nextInt(size);
-        } while (Math.abs(startX - endX) + Math.abs(startY - endY) < 64); // Manhattan distance >= 64
+        // Pick 4 door points ensuring they are far apart
+        int[][] doors = new int[4][2];
+        for (int i = 0; i < 4; i++) {
+            boolean valid;
+            do {
+                valid = true;
+                doors[i][0] = rand.nextInt(size - 2) + 1; // X (avoid edges)
+                doors[i][1] = rand.nextInt(size - 2) + 1; // Y (avoid edges)
+                // Check distance with previously placed doors
+                for (int j = 0; j < i; j++) {
+                    if (Math.abs(doors[i][0] - doors[j][0]) + Math.abs(doors[i][1] - doors[j][1]) < 30) {
+                        valid = false;
+                        break;
+                    }
+                }
+            } while (!valid);
+            
+            // Place bunker door
+            matrix[doors[i][1]][doors[i][0]] = 10;
+        }
 
-        // Place bunker doors
-        matrix[startY][startX] = 10;
-        matrix[endY][endX] = 10;
-
-        return new WorldMapDTO(matrix, startX, startY, endX, endY);
+        WorldMapDTO dto = new WorldMapDTO();
+        dto.setMatrix(matrix);
+        // Start is doors[0], End is doors[1] for backward compatibility
+        dto.setStartX(doors[0][0]);
+        dto.setStartY(doors[0][1]);
+        
+        // Add all 4 doors to the DTO
+        List<int[]> doorList = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            doorList.add(new int[]{doors[i][0], doors[i][1]});
+        }
+        dto.setDoors(doorList);
+        
+        return dto;
     }
 }

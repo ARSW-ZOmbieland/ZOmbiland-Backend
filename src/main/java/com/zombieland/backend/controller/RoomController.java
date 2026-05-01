@@ -35,8 +35,14 @@ public class RoomController {
     @PostMapping("/create")
     public void createRoom(@RequestBody Map<String, String> payload) {
         if (payload.containsKey("roomCode")) {
-            roomManager.createRoom(payload.get("roomCode"));
+            String mode = payload.getOrDefault("mode", "TRADICIONAL");
+            roomManager.createRoom(payload.get("roomCode"), mode);
         }
+    }
+
+    @GetMapping("/{code}/mode")
+    public Map<String, String> getRoomMode(@PathVariable String code) {
+        return Map.of("mode", roomManager.getRoomMode(code.toUpperCase()));
     }
 
     @GetMapping("/{code}/exists")
