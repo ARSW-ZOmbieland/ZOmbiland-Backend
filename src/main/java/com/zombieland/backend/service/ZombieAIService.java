@@ -29,6 +29,9 @@ public class ZombieAIService {
     // zombieId -> lastTeleportTimestamp
     private final java.util.concurrent.ConcurrentHashMap<String, Long> lastTeleportTime = new java.util.concurrent.ConcurrentHashMap<>();
 
+    // zombieId -> is currently pursuing a player
+    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> isPursuing = new java.util.concurrent.ConcurrentHashMap<>();
+
     private int moveTickCounter = 0;
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
@@ -64,9 +67,9 @@ public class ZombieAIService {
                 if ("hunter".equals(type) || "chasqueador".equals(type)) {
                     moveRate = 2; // Rápido: 400ms
                 } else if ("tanke".equals(type)) {
-                    moveRate = 6; // Muy Lento: 1.2s
+                    moveRate = 5; // Lento: 1.0s (Un poco menos que el común)
                 } else if ("llorona".equals(type)) {
-                    moveRate = 5; // Lento: 1.0s
+                    moveRate = 6; // Muy Lento: 1.2s
                 } else {
                     moveRate = 4; // Normal (Comun): 800ms
                 }
@@ -125,8 +128,23 @@ public class ZombieAIService {
             }
         }
 
-        // Si es Chasqueador o Hunter (tras el salto), solo persigue si está cerca (6 unidades)
-        if ((isChasqueador || isHunter) && minDistance > 6.0) {
+        // LÓGICA DE VISIÓN Y PERSECUCIÓN
+        boolean pursuing = isPursuing.getOrDefault(zombie.getId(), false);
+
+        if (!pursuing) {
+            if (minDistance <= 6.0) {
+                isPursuing.put(zombie.getId(), true);
+                System.out.println(">> ZOMBIE " + type + " SPOTTED PLAYER! Pursuit started.");
+            } else {
+                performRandomWander(zombie, matrix);
+                return;
+            }
+        }
+
+        // LÓGICA DE PÉRDIDA DE VISIÓN (Todos excepto el Tanke)
+        // El Tanke es el único que te sigue "sin importar qué" una vez detectado
+        if (!"tanke".equals(type) && minDistance > 8.0) {
+            isPursuing.put(zombie.getId(), false);
             performRandomWander(zombie, matrix);
             return;
         }
@@ -222,7 +240,7 @@ public class ZombieAIService {
                         int damageAmount;
 
                         if ("tanke".equals(type)) {
-                            damageAmount = (dist < 0.2) ? 40 : 15;
+                            damageAmount = 50; // Dos golpes matan (HP 100)
                         } else if ("hunter".equals(type)) {
                             damageAmount = (dist < 0.2) ? 15 : 5;
                         } else if ("llorona".equals(type)) {
