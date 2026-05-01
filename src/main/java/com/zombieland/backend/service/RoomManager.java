@@ -356,7 +356,7 @@ public class RoomManager {
                     deathTimers.putIfAbsent(timerKey, now);
                     long diedAt = deathTimers.get(timerKey);
                     
-                    if (now - diedAt >= 30000) { // 30 seconds
+                    if (now - diedAt >= 15000) { // 15 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
                             // Revive exactly where they died (or at start if position was missing)
@@ -365,6 +365,7 @@ public class RoomManager {
                             
                             player.setHealth(100);
                             player.setAmmo(30);
+                            player.setParalyzed(false); // Liberar parálisis si murió paralizado
                             player.setAction("RESPAWN");
                             
                             deathTimers.remove(timerKey);
