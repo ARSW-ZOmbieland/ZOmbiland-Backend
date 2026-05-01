@@ -12,6 +12,7 @@ public class GameActionMessage {
     private Double aimAngle;
     private int ammo = 30;
     private String location = "world";
+    private boolean paralyzed = false;
 
     public GameActionMessage() {}
 
@@ -48,4 +49,6 @@ public class GameActionMessage {
     public void setAmmo(int ammo) { this.ammo = ammo; }
     public String getLocation() { return location; }
     public void setLocation(String location) { this.location = location; }
+    public boolean isParalyzed() { return paralyzed; }
+    public void setParalyzed(boolean paralyzed) { this.paralyzed = paralyzed; }
 }

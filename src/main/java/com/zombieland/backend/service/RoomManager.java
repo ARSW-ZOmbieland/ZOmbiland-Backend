@@ -152,10 +152,17 @@ public class RoomManager {
                 if (message.getY() == null) message.setY(existing.getY());
                 if (message.getAimAngle() == null) message.setAimAngle(existing.getAimAngle());
                 
-                // Preserve server state (health, ammo, location)
+                // Preserve server state (health, ammo, location, paralyzed)
                 message.setHealth(existing.getHealth());
                 message.setAmmo(existing.getAmmo());
+                message.setParalyzed(existing.isParalyzed());
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
+                
+                // Block movement if paralyzed
+                if (existing.isParalyzed()) {
+                    message.setX(existing.getX());
+                    message.setY(existing.getY());
+                }
                 
                 // --- ITEM COLLECTION CHECK ---
                 WorldMapDTO map = roomMaps.get(roomCode);
