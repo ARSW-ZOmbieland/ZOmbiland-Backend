@@ -35,7 +35,8 @@ public class RoomController {
     @PostMapping("/create")
     public void createRoom(@RequestBody Map<String, String> payload) {
         if (payload.containsKey("roomCode")) {
-            roomManager.createRoom(payload.get("roomCode"));
+            String mode = payload.getOrDefault("mode", "coop");
+            roomManager.createRoom(payload.get("roomCode"), mode);
         }
     }
 
