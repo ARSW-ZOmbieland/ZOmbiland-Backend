@@ -206,10 +206,12 @@ public class RoomManager {
                         for (int attempts = 0; attempts < 100; attempts++) {
                             int rx = rand.nextInt(size);
                             int ry = rand.nextInt(size);
+                            // Ensure walkable tile (ground IDs 0-7)
                             if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
                                 message.setX((double)rx);
                                 message.setY((double)ry);
-                                System.out.println(">> TOURNAMENT RANDOM EXIT: Player " + message.getPlayerId() + " sent to [" + rx + "," + ry + "]");
+                                message.setAction("TELEPORT"); // <--- NUEVA ACCIÓN
+                                System.out.println(">> TOURNAMENT TELEPORT: Player " + message.getPlayerId() + " to [" + rx + "," + ry + "]");
                                 break;
                             }
                         }
