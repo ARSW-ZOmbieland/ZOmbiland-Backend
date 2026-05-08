@@ -39,14 +39,21 @@ public class RoomManager {
     // roomCode:playerId -> Timestamp of death
     private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
+    // roomCode:playerId -> set of eliminated players (Tournament only)
+    private final Set<String> eliminatedPlayers = ConcurrentHashMap.newKeySet();
+
     // roomCode -> mode ("TRADICIONAL" or "TORNEO")
     private final ConcurrentHashMap<String, String> roomModes = new ConcurrentHashMap<>();
+
+    // roomCode -> startTime (millis)
+    private final ConcurrentHashMap<String, Long> roomStartTimes = new ConcurrentHashMap<>();
 
     public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
         String finalMode = mode != null ? mode.toUpperCase() : "TRADICIONAL";
         validRooms.add(code);
         roomModes.put(code, finalMode);
+        roomStartTimes.put(code, System.currentTimeMillis());
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
         WorldMapDTO map = mapGenerator.generateMap(finalMode);
         roomMaps.putIfAbsent(code, map);
@@ -112,8 +119,19 @@ public class RoomManager {
         return roomModes.getOrDefault(roomCode.toUpperCase(), "TRADICIONAL");
     }
 
+    public Long getRoomStartTime(String roomCode) {
+        return roomStartTimes.get(roomCode.toUpperCase());
+    }
+
     public boolean roomExists(String roomCode) {
         return validRooms.contains(roomCode.toUpperCase());
+    }
+
+    public void registerElimination(String roomCode, String playerId) {
+        String mode = getRoomMode(roomCode);
+        if ("TORNEO".equals(mode)) {
+            eliminatedPlayers.add(roomCode.toUpperCase() + ":" + playerId);
+        }
     }
 
     public static class PlayerSessionInfo {
@@ -129,7 +147,10 @@ public class RoomManager {
         String roomCode = message.getRoomCode().toUpperCase();
         String playerId = message.getPlayerId();
         
-        if (!validRooms.contains(roomCode)) {
+        // Block rejoining if eliminated in Tournament mode
+        String mode = roomModes.getOrDefault(roomCode, "TRADICIONAL");
+        if ("TORNEO".equals(mode) && eliminatedPlayers.contains(roomCode + ":" + playerId)) {
+            System.out.println(">> JOIN BLOCKED: Player " + playerId + " is eliminated from Tournament.");
             return false;
         }
         
@@ -140,6 +161,10 @@ public class RoomManager {
         if (players.size() >= 4 && !players.containsKey(playerId)) {
             return false; 
         }
+        
+        // Reset health if not eliminated (re-joining or first time)
+        message.setHealth(100);
+        message.setAmmo(30);
         
         players.put(playerId, message);
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
@@ -297,10 +322,12 @@ public class RoomManager {
         double vx = Math.cos(snappedAngle);
         double vy = Math.sin(snappedAngle);
 
-        // 3. Find the CLOSEST zombie along the ray within range 6.0 (Single Target)
+        // 3. Find the CLOSEST zombie OR player along the ray within range 6.0 (Single Target)
         ZombieState targetZombie = null;
+        GameActionMessage targetPlayer = null;
         double closestDist = 7.0; // Max range is 6.0
 
+        // Check Zombies
         for (ZombieState zombie : zombies) {
             double zx = zombie.getX() - px;
             double zy = zombie.getY() - py;
@@ -316,16 +343,48 @@ public class RoomManager {
                 if (dot < closestDist) {
                     closestDist = dot;
                     targetZombie = zombie;
+                    targetPlayer = null;
                 }
             }
         }
 
-        // 4. Apply damage only to the closest target
+        // Check other Players
+        String mode = roomModes.getOrDefault(roomCode, "TRADICIONAL");
+        if ("TORNEO".equals(mode) && "world".equals(message.getLocation())) {
+            for (GameActionMessage otherPlayer : players.values()) {
+                if (otherPlayer.getPlayerId().equals(message.getPlayerId())) continue;
+                if (otherPlayer.getHealth() <= 0) continue;
+                if (!"world".equals(otherPlayer.getLocation())) continue; // No damage to players in bunker
+
+                double ox = otherPlayer.getX() - px;
+                double oy = otherPlayer.getY() - py;
+                double dot = ox * vx + oy * vy;
+                double distSq = (ox * ox + oy * oy) - (dot * dot);
+
+                if (dot > 0 && dot < 6.0 && distSq < 0.2) {
+                    if (dot < closestDist) {
+                        closestDist = dot;
+                        targetZombie = null;
+                        targetPlayer = otherPlayer;
+                    }
+                }
+            }
+        }
+
+        // 4. Apply damage
         if (targetZombie != null) {
             targetZombie.setHealth(targetZombie.getHealth() - 34); 
             if (targetZombie.getHealth() <= 0) {
                 zombies.remove(targetZombie);
             }
+        } else if (targetPlayer != null) {
+            targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 20));
+            if (targetPlayer.getHealth() <= 0) {
+                registerElimination(roomCode, targetPlayer.getPlayerId());
+            }
+            String stateTopic = "/topic/game.state." + roomCode;
+            messagingTemplate.convertAndSend(stateTopic, targetPlayer);
+            System.out.println(">> PvP HIT! Victim: " + targetPlayer.getPlayerId() + " HP: " + targetPlayer.getHealth());
         }
     }
 
