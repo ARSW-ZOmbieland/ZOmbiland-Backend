@@ -76,7 +76,7 @@ public class TournamentService {
             Map<String, Object> zoneStatus = new ConcurrentHashMap<>();
             zoneStatus.put("radius", currentRadius);
             zoneStatus.put("timeLeft", 300 - elapsedSeconds);
-            messagingTemplate.convertAndSend("/topic/game.zone." + roomCode, zoneStatus);
+            messagingTemplate.convertAndSend("/topic/game.zone." + roomCode, (Object) zoneStatus);
         }
     }
 
