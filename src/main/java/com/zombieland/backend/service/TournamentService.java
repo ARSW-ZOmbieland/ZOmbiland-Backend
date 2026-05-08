@@ -101,7 +101,7 @@ public class TournamentService {
         Map<String, Object> winData = new ConcurrentHashMap<>();
         winData.put("action", "TOURNAMENT_WIN");
         winData.put("winnerId", playerId);
-        messagingTemplate.convertAndSend("/topic/game.state." + roomCode, winData);
+        messagingTemplate.convertAndSend("/topic/game.state." + roomCode, (Object) winData);
         
         // Opcional: Cerrar la sala después de unos segundos o dejar que vean el resultado
     }
@@ -109,6 +109,6 @@ public class TournamentService {
     private void handleTournamentEnd(String roomCode) {
         Map<String, Object> endData = new ConcurrentHashMap<>();
         endData.put("action", "TOURNAMENT_END");
-        messagingTemplate.convertAndSend("/topic/game.state." + roomCode, endData);
+        messagingTemplate.convertAndSend("/topic/game.state." + roomCode, (Object) endData);
     }
 }
