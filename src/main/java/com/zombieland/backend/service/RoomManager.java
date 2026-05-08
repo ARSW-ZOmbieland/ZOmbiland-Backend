@@ -419,11 +419,17 @@ public class RoomManager {
     public void processRespawns() {
         long now = System.currentTimeMillis();
         for (String roomCode : roomPlayers.keySet()) {
+            String mode = getRoomMode(roomCode);
             Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
             if (players == null) continue;
 
             for (GameActionMessage player : players.values()) {
                 if (player.getHealth() <= 0) {
+                    // SI ES TORNEO, NO HAY RESPAWN
+                    if ("TORNEO".equals(mode)) {
+                        continue;
+                    }
+
                     String timerKey = roomCode + ":" + player.getPlayerId();
                     deathTimers.putIfAbsent(timerKey, now);
                     long diedAt = deathTimers.get(timerKey);
@@ -431,20 +437,20 @@ public class RoomManager {
                     if (now - diedAt >= 15000) { // 15 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
-                            // Revive exactly where they died (or at start if position was missing)
+                            // Revive exactly where they died
                             if (player.getX() == null) player.setX((double)map.getStartX());
                             if (player.getY() == null) player.setY((double)map.getStartY());
                             
                             player.setHealth(100);
                             player.setAmmo(30);
-                            player.setParalyzed(false); // Liberar parálisis si murió paralizado
+                            player.setParalyzed(false);
                             player.setAction("RESPAWN");
                             
                             deathTimers.remove(timerKey);
                             
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, player);
-                            System.out.println(">> PLAYER RESPAWNED (AT SPOT): " + player.getPlayerId());
+                            System.out.println(">> PLAYER RESPAWNED (TRADICIONAL): " + player.getPlayerId());
                         }
                     }
                 } else {
