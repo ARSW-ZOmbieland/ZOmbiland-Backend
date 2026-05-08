@@ -194,6 +194,28 @@ public class RoomManager {
                 message.setHealth(existing.getHealth());
                 message.setAmmo(existing.getAmmo());
                 message.setParalyzed(existing.isParalyzed());
+                
+                // --- TOURNAMENT: RANDOM EXIT FROM BUNKER ---
+                String mode = getRoomMode(roomCode);
+                if ("TORNEO".equals(mode) && "world".equals(message.getLocation()) && "bunker".equals(existing.getLocation())) {
+                    WorldMapDTO map = roomMaps.get(roomCode);
+                    if (map != null) {
+                        Random rand = new Random();
+                        int[][] matrix = map.getMatrix();
+                        int size = matrix.length;
+                        for (int attempts = 0; attempts < 100; attempts++) {
+                            int rx = rand.nextInt(size);
+                            int ry = rand.nextInt(size);
+                            if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
+                                message.setX((double)rx);
+                                message.setY((double)ry);
+                                System.out.println(">> TOURNAMENT RANDOM EXIT: Player " + message.getPlayerId() + " sent to [" + rx + "," + ry + "]");
+                                break;
+                            }
+                        }
+                    }
+                }
+
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
                 
                 // Block movement if paralyzed
