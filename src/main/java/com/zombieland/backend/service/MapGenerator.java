@@ -126,40 +126,15 @@ public class MapGenerator {
             matrix[i][size - 1] = 90;    // Right edge
         }
 
-        // Pick 4 door points ensuring they are far apart
-        int numDoors = "TORNEO".equals(mode) ? 4 : 2;
-        int[][] doors = new int[numDoors][2];
-        for (int i = 0; i < numDoors; i++) {
-            boolean valid;
-            do {
-                valid = true;
-                doors[i][0] = rand.nextInt(size - 2) + 1; // X (avoid edges)
-                doors[i][1] = rand.nextInt(size - 2) + 1; // Y (avoid edges)
-                // Check distance with previously placed doors
-                for (int j = 0; j < i; j++) {
-                    if (Math.abs(doors[i][0] - doors[j][0]) + Math.abs(doors[i][1] - doors[j][1]) < 30) {
-                        valid = false;
-                        break;
-                    }
-                }
-            } while (!valid);
-            
-            // Place bunker door
-            matrix[doors[i][1]][doors[i][0]] = 10;
-        }
-
+        // Doors removed as per user request to spawn randomly and not use fixed entrances.
+        
         WorldMapDTO dto = new WorldMapDTO();
         dto.setMatrix(matrix);
-        // Start is doors[0], End is doors[1] for backward compatibility
-        dto.setStartX(doors[0][0]);
-        dto.setStartY(doors[0][1]);
-        
-        // Add all 4 doors to the DTO
-        List<int[]> doorList = new ArrayList<>();
-        for (int i = 0; i < numDoors; i++) {
-            doorList.add(new int[]{doors[i][0], doors[i][1]});
-        }
-        dto.setDoors(doorList);
+        // Start coordinates will be handled dynamically by RoomManager for each player
+        dto.setStartX(32.0); 
+        dto.setStartY(32.0);
+        dto.setDoors(new ArrayList<>());
+
         
         return dto;
     }

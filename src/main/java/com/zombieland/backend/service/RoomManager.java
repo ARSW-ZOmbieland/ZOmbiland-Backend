@@ -162,14 +162,66 @@ public class RoomManager {
             return false; 
         }
         
-        // Reset health if not eliminated (re-joining or first time)
+        // Reset health and ammo
         message.setHealth(100);
         message.setAmmo(30);
+        
+        // --- NEW: Assign Random Spawn far from others ---
+        assignRandomSpawn(message);
         
         players.put(playerId, message);
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
         return true;
     }
+
+    private void assignRandomSpawn(GameActionMessage message) {
+        String roomCode = message.getRoomCode().toUpperCase();
+        WorldMapDTO map = roomMaps.get(roomCode);
+        if (map == null) return;
+        
+        int[][] matrix = map.getMatrix();
+        int size = matrix.length;
+        Random rand = new Random();
+        
+        double bestX = 32, bestY = 32;
+        double maxMinDist = -1;
+        
+        Map<String, GameActionMessage> existingPlayers = roomPlayers.get(roomCode);
+        
+        // Try 100 times to find a good spot
+        for (int attempts = 0; attempts < 100; attempts++) {
+            int rx = rand.nextInt(size);
+            int ry = rand.nextInt(size);
+            
+            // Ensure walkable ground (IDs 0-7)
+            if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
+                double minDist = 100.0; // Assume far if no other players
+                
+                if (existingPlayers != null && !existingPlayers.isEmpty()) {
+                    for (GameActionMessage other : existingPlayers.values()) {
+                        if (other.getX() == null || other.getY() == null || other.getPlayerId().equals(message.getPlayerId())) continue;
+                        double dist = Math.sqrt(Math.pow(rx - other.getX(), 2) + Math.pow(ry - other.getY(), 2));
+                        if (dist < minDist) minDist = dist;
+                    }
+                }
+                
+                if (minDist > maxMinDist) {
+                    maxMinDist = minDist;
+                    bestX = rx;
+                    bestY = ry;
+                }
+                
+                // If we found a spot > 20 tiles away, it's good enough
+                if (maxMinDist > 20) break;
+            }
+        }
+        
+        message.setX(bestX);
+        message.setY(bestY);
+        message.setAction("TELEPORT"); // Force client to update position
+        System.out.println(">> ASSIGNED RANDOM SPAWN: " + message.getPlayerId() + " to [" + bestX + "," + bestY + "] dist=" + maxMinDist);
+    }
+
 
     public void updatePlayerState(GameActionMessage message) {
         String roomCode = message.getRoomCode().toUpperCase();
@@ -195,9 +247,8 @@ public class RoomManager {
                 message.setAmmo(existing.getAmmo());
                 message.setParalyzed(existing.isParalyzed());
                 
-                // --- TOURNAMENT: RANDOM EXIT FROM BUNKER ---
-                String mode = getRoomMode(roomCode);
-                if ("TORNEO".equals(mode) && "world".equals(message.getLocation()) && "bunker".equals(existing.getLocation())) {
+                // --- RANDOM EXIT FROM BUNKER (ALL MODES) ---
+                if ("world".equals(message.getLocation()) && "bunker".equals(existing.getLocation())) {
                     WorldMapDTO map = roomMaps.get(roomCode);
                     if (map != null) {
                         Random rand = new Random();
@@ -210,13 +261,14 @@ public class RoomManager {
                             if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
                                 message.setX((double)rx);
                                 message.setY((double)ry);
-                                message.setAction("TELEPORT"); // <--- NUEVA ACCIÓN
-                                System.out.println(">> TOURNAMENT TELEPORT: Player " + message.getPlayerId() + " to [" + rx + "," + ry + "]");
+                                message.setAction("TELEPORT"); 
+                                System.out.println(">> MAP ENTRY TELEPORT: Player " + message.getPlayerId() + " to [" + rx + "," + ry + "]");
                                 break;
                             }
                         }
                     }
                 }
+
 
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
                 
@@ -461,14 +513,14 @@ public class RoomManager {
                     if (now - diedAt >= 15000) { // 15 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
-                            // Revive exactly where they died
-                            if (player.getX() == null) player.setX((double)map.getStartX());
-                            if (player.getY() == null) player.setY((double)map.getStartY());
+                            // NEW: Respawn in a random safe location
+                            assignRandomSpawn(player);
                             
                             player.setHealth(100);
                             player.setAmmo(30);
                             player.setParalyzed(false);
-                            player.setAction("RESPAWN");
+                            player.setAction("RESPAWN"); // Override TELEPORT to trigger respawn animation if any
+
                             
                             deathTimers.remove(timerKey);
                             
