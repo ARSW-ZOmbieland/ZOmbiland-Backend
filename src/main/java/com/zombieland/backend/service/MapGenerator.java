@@ -126,14 +126,44 @@ public class MapGenerator {
             matrix[i][size - 1] = 90;    // Right edge
         }
 
-        // Doors removed as per user request to spawn randomly and not use fixed entrances.
-        
+        // Doors are only placed in Supervivencia (TRADICIONAL) mode. 
+        // In TORNEO mode, they are removed to support the Battle Royale style gameplay.
+        List<int[]> doorList = new ArrayList<>();
+        int defaultStartX = 32;
+        int defaultStartY = 32;
+
+        if (!"TORNEO".equals(mode)) {
+            int numDoors = 2;
+            int[][] doors = new int[numDoors][2];
+            for (int i = 0; i < numDoors; i++) {
+                boolean valid;
+                do {
+                    valid = true;
+                    doors[i][0] = rand.nextInt(size - 2) + 1;
+                    doors[i][1] = rand.nextInt(size - 2) + 1;
+                    for (int j = 0; j < i; j++) {
+                        if (Math.abs(doors[i][0] - doors[j][0]) + Math.abs(doors[i][1] - doors[j][1]) < 30) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                } while (!valid);
+                
+                matrix[doors[i][1]][doors[i][0]] = 10; // Bunker Door
+                doorList.add(new int[]{doors[i][0], doors[i][1]});
+            }
+            if (!doorList.isEmpty()) {
+                defaultStartX = doorList.get(0)[0];
+                defaultStartY = doorList.get(0)[1];
+            }
+        }
+
         WorldMapDTO dto = new WorldMapDTO();
         dto.setMatrix(matrix);
-        // Start coordinates will be handled dynamically by RoomManager for each player
-        dto.setStartX(32); 
-        dto.setStartY(32);
-        dto.setDoors(new ArrayList<>());
+        dto.setStartX(defaultStartX); 
+        dto.setStartY(defaultStartY);
+        dto.setDoors(doorList);
+
 
 
         
