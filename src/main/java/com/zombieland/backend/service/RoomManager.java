@@ -166,12 +166,16 @@ public class RoomManager {
         message.setHealth(100);
         message.setAmmo(30);
         
-        // --- SPAWN LOGIC ---
-        if ("world".equals(message.getLocation())) {
+        // --- SPAWN LOGIC (with Re-join protection) ---
+        GameActionMessage existing = players.get(playerId);
+        if (existing != null && "world".equals(existing.getLocation()) && "world".equals(message.getLocation())) {
+            message.setX(existing.getX());
+            message.setY(existing.getY());
+            System.out.println(">> RE-JOIN: Preserving position for " + playerId + " at [" + existing.getX() + "," + existing.getY() + "]");
+        } else if ("world".equals(message.getLocation())) {
             if ("TORNEO".equals(mode)) {
                 assignRandomSpawn(message);
             } else {
-                // In Survival (TRADICIONAL), always start at the door
                 WorldMapDTO map = roomMaps.get(roomCode);
                 if (map != null) {
                     message.setX((double)map.getStartX());
@@ -179,9 +183,9 @@ public class RoomManager {
                 }
             }
         }
-
         
         players.put(playerId, message);
+
 
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
         return true;
