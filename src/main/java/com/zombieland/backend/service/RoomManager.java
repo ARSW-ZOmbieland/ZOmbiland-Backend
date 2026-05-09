@@ -166,10 +166,13 @@ public class RoomManager {
         message.setHealth(100);
         message.setAmmo(30);
         
-        // --- NEW: Assign Random Spawn far from others ---
-        assignRandomSpawn(message);
+        // --- NEW: Assign Random Spawn only if joining directly in the world ---
+        if ("world".equals(message.getLocation())) {
+            assignRandomSpawn(message);
+        }
         
         players.put(playerId, message);
+
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
         return true;
     }
@@ -247,27 +250,25 @@ public class RoomManager {
                 message.setAmmo(existing.getAmmo());
                 message.setParalyzed(existing.isParalyzed());
                 
-                // --- RANDOM EXIT FROM BUNKER (ALL MODES) ---
+                // --- EXIT FROM BUNKER ---
+                String mode = getRoomMode(roomCode);
                 if ("world".equals(message.getLocation()) && "bunker".equals(existing.getLocation())) {
-                    WorldMapDTO map = roomMaps.get(roomCode);
-                    if (map != null) {
-                        Random rand = new Random();
-                        int[][] matrix = map.getMatrix();
-                        int size = matrix.length;
-                        for (int attempts = 0; attempts < 100; attempts++) {
-                            int rx = rand.nextInt(size);
-                            int ry = rand.nextInt(size);
-                            // Ensure walkable tile (ground IDs 0-7)
-                            if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
-                                message.setX((double)rx);
-                                message.setY((double)ry);
-                                message.setAction("TELEPORT"); 
-                                System.out.println(">> MAP ENTRY TELEPORT: Player " + message.getPlayerId() + " to [" + rx + "," + ry + "]");
-                                break;
-                            }
+                    if ("TORNEO".equals(mode)) {
+                        // In Tournament (BR), players appear in random locations
+                        assignRandomSpawn(message);
+                        System.out.println(">> TOURNAMENT ENTRY: Player " + message.getPlayerId() + " to random spot");
+                    } else {
+                        // In Survival (TRADICIONAL), players appear at the door (startX/startY)
+                        WorldMapDTO map = roomMaps.get(roomCode);
+                        if (map != null) {
+                            message.setX((double)map.getStartX());
+                            message.setY((double)map.getStartY());
+                            message.setAction("TELEPORT");
+                            System.out.println(">> SURVIVAL ENTRY: Player " + message.getPlayerId() + " to door [" + map.getStartX() + "," + map.getStartY() + "]");
                         }
                     }
                 }
+
 
 
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
