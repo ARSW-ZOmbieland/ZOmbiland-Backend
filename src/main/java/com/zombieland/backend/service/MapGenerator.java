@@ -131,9 +131,10 @@ public class MapGenerator {
         WorldMapDTO dto = new WorldMapDTO();
         dto.setMatrix(matrix);
         // Start coordinates will be handled dynamically by RoomManager for each player
-        dto.setStartX(32.0); 
-        dto.setStartY(32.0);
+        dto.setStartX(32); 
+        dto.setStartY(32);
         dto.setDoors(new ArrayList<>());
+
 
         
         return dto;
