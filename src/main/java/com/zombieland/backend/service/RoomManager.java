@@ -166,10 +166,20 @@ public class RoomManager {
         message.setHealth(100);
         message.setAmmo(30);
         
-        // --- NEW: Assign Random Spawn only if joining directly in the world ---
+        // --- SPAWN LOGIC ---
         if ("world".equals(message.getLocation())) {
-            assignRandomSpawn(message);
+            if ("TORNEO".equals(mode)) {
+                assignRandomSpawn(message);
+            } else {
+                // In Survival (TRADICIONAL), always start at the door
+                WorldMapDTO map = roomMaps.get(roomCode);
+                if (map != null) {
+                    message.setX((double)map.getStartX());
+                    message.setY((double)map.getStartY());
+                }
+            }
         }
+
         
         players.put(playerId, message);
 
@@ -514,8 +524,10 @@ public class RoomManager {
                     if (now - diedAt >= 15000) { // 15 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
-                            // NEW: Respawn in a random safe location
-                            assignRandomSpawn(player);
+                            // Respawn exactly at the door in Survival mode
+                            player.setX((double)map.getStartX());
+                            player.setY((double)map.getStartY());
+
                             
                             player.setHealth(100);
                             player.setAmmo(30);
