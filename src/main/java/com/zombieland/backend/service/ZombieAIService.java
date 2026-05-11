@@ -29,9 +29,6 @@ public class ZombieAIService {
     // zombieId -> lastTeleportTimestamp
     private final java.util.concurrent.ConcurrentHashMap<String, Long> lastTeleportTime = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // zombieId+playerId -> has the llorona attacked this player before?
-    private final java.util.concurrent.ConcurrentHashMap<String, Boolean> hasLloronaAttacked = new java.util.concurrent.ConcurrentHashMap<>();
-
     // zombieId -> is currently pursuing a player
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> isPursuing = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -67,7 +64,7 @@ public class ZombieAIService {
                 String type = zombie.getType();
                 int moveRate;
                 
-                if ("hunter".equals(type) || "chasqueador".equals(type) || "llorona".equals(type)) {
+                if ("hunter".equals(type) || "chasqueador".equals(type)) {
                     moveRate = 2; // Rápido: 400ms
                 } else if ("tanke".equals(type)) {
                     moveRate = 5; // Lento: 1.0s (Un poco menos que el común)
@@ -244,23 +241,7 @@ public class ZombieAIService {
                             damageAmount = 50; // Dos golpes matan (HP 100)
                         } else if ("hunter".equals(type)) {
                             damageAmount = (dist < 0.2) ? 15 : 5;
-                        } else if ("llorona".equals(type)) {
-                            damageAmount = 25;
-                            boolean firstAttack = !hasLloronaAttacked.getOrDefault(attackKey, false);
-                            if (firstAttack) {
-                                hasLloronaAttacked.put(attackKey, true);
-                                player.setParalyzed(true);
-                                System.out.println(">> LLORONA PARALYZED PLAYER " + player.getPlayerId());
-                                
-                                java.util.Timer timer = new java.util.Timer();
-                                timer.schedule(new java.util.TimerTask() {
-                                    @Override
-                                    public void run() {
-                                        player.setParalyzed(false);
-                                        messagingTemplate.convertAndSend("/topic/game.state." + roomCode, player);
-                                    }
-                                }, 1000); // 1 second
-                            }
+
                         } else {
                             damageAmount = (dist < 0.2) ? 20 : 8; // Comun y Chasqueador
                         }

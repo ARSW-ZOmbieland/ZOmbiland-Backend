@@ -89,16 +89,14 @@ public class RoomManager {
             // Distribución equilibrada de tipos
             String type;
             int chance = rand.nextInt(100);
-            if (chance < 30) {
+            if (chance < 35) {
                 type = "comun";
-            } else if (chance < 50) {
+            } else if (chance < 60) {
                 type = "chasqueador";
-            } else if (chance < 70) {
+            } else if (chance < 80) {
                 type = "tanke";
-            } else if (chance < 85) {
-                type = "hunter";
             } else {
-                type = "llorona";
+                type = "hunter";
             }
             ZombieState newZombie = new ZombieState("zombie-" + i, rx, ry, "abajo", type);
             if ("tanke".equals(type)) {
