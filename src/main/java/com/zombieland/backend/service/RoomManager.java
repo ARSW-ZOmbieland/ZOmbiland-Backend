@@ -39,19 +39,33 @@ public class RoomManager {
     // roomCode:playerId -> Timestamp of death
     private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
-    public void createRoom(String roomCode) {
+    // roomCode:playerId -> set of eliminated players (Tournament only)
+    private final Set<String> eliminatedPlayers = ConcurrentHashMap.newKeySet();
+
+    // roomCode -> mode ("TRADICIONAL" or "TORNEO")
+    private final ConcurrentHashMap<String, String> roomModes = new ConcurrentHashMap<>();
+
+    // roomCode -> startTime (millis)
+    private final ConcurrentHashMap<String, Long> roomStartTimes = new ConcurrentHashMap<>();
+
+    public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
+        String finalMode = mode != null ? mode.toUpperCase() : "TRADICIONAL";
         validRooms.add(code);
+        roomModes.put(code, finalMode);
+        roomStartTimes.put(code, System.currentTimeMillis());
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
-        WorldMapDTO map = mapGenerator.generateMap();
+        WorldMapDTO map = mapGenerator.generateMap(finalMode);
         roomMaps.putIfAbsent(code, map);
         
-        // Spawn 20 Zombies distributed across the 64x64 map
         List<ZombieState> zombies = new ArrayList<>();
+        
+        // Spawn Zombies only if NOT in Torneo mode
+        if (!"TORNEO".equals(finalMode)) {
         Random rand = new Random();
         int[][] matrix = map.getMatrix();
         
-        for (int i = 1; i <= 20; i++) {
+        for (int i = 1; i <= 40; i++) {
             int rx = 0, ry = 0;
             boolean found = false;
             // Seek a walkable position (Ground tiles 0-7)
@@ -72,9 +86,26 @@ public class RoomManager {
                 ry = (int)map.getStartY() + (i / 3);
             }
             
-            String type = (i % 5 == 0) ? "chasqueador" : "comun";
-            zombies.add(new ZombieState("zombie-" + i, rx, ry, "abajo", type));
+            // Distribución equilibrada de tipos
+            String type;
+            int chance = rand.nextInt(100);
+            if (chance < 35) {
+                type = "comun";
+            } else if (chance < 60) {
+                type = "chasqueador";
+            } else if (chance < 80) {
+                type = "tanke";
+            } else {
+                type = "hunter";
+            }
+            ZombieState newZombie = new ZombieState("zombie-" + i, rx, ry, "abajo", type);
+            if ("tanke".equals(type)) {
+                newZombie.setHealth(680); // 20 disparos de 34 cada uno
+            }
+            zombies.add(newZombie);
         }
+        } // Cierre del if de zombies
+        
         roomZombies.put(code, zombies);
     }
 
@@ -82,8 +113,23 @@ public class RoomManager {
         return roomMaps.get(roomCode.toUpperCase());
     }
 
+    public String getRoomMode(String roomCode) {
+        return roomModes.getOrDefault(roomCode.toUpperCase(), "TRADICIONAL");
+    }
+
+    public Long getRoomStartTime(String roomCode) {
+        return roomStartTimes.get(roomCode.toUpperCase());
+    }
+
     public boolean roomExists(String roomCode) {
         return validRooms.contains(roomCode.toUpperCase());
+    }
+
+    public void registerElimination(String roomCode, String playerId) {
+        String mode = getRoomMode(roomCode);
+        if ("TORNEO".equals(mode)) {
+            eliminatedPlayers.add(roomCode.toUpperCase() + ":" + playerId);
+        }
     }
 
     public static class PlayerSessionInfo {
@@ -99,7 +145,10 @@ public class RoomManager {
         String roomCode = message.getRoomCode().toUpperCase();
         String playerId = message.getPlayerId();
         
-        if (!validRooms.contains(roomCode)) {
+        // Block rejoining if eliminated in Tournament mode
+        String mode = roomModes.getOrDefault(roomCode, "TRADICIONAL");
+        if ("TORNEO".equals(mode) && eliminatedPlayers.contains(roomCode + ":" + playerId)) {
+            System.out.println(">> JOIN BLOCKED: Player " + playerId + " is eliminated from Tournament.");
             return false;
         }
         
@@ -111,10 +160,83 @@ public class RoomManager {
             return false; 
         }
         
+        // Reset health and ammo
+        message.setHealth(100);
+        message.setAmmo(30);
+        
+        // --- SPAWN LOGIC (with Re-join protection) ---
+        GameActionMessage existing = players.get(playerId);
+        if (existing != null && "world".equals(existing.getLocation()) && "world".equals(message.getLocation())) {
+            message.setX(existing.getX());
+            message.setY(existing.getY());
+            System.out.println(">> RE-JOIN: Preserving position for " + playerId + " at [" + existing.getX() + "," + existing.getY() + "]");
+        } else if ("world".equals(message.getLocation())) {
+            if ("TORNEO".equals(mode)) {
+                assignRandomSpawn(message);
+            } else {
+                WorldMapDTO map = roomMaps.get(roomCode);
+                if (map != null) {
+                    message.setX((double)map.getStartX());
+                    message.setY((double)map.getStartY());
+                }
+            }
+        }
+        
         players.put(playerId, message);
+
+
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
         return true;
     }
+
+    private void assignRandomSpawn(GameActionMessage message) {
+        String roomCode = message.getRoomCode().toUpperCase();
+        WorldMapDTO map = roomMaps.get(roomCode);
+        if (map == null) return;
+        
+        int[][] matrix = map.getMatrix();
+        int size = matrix.length;
+        Random rand = new Random();
+        
+        double bestX = 32, bestY = 32;
+        double maxMinDist = -1;
+        
+        Map<String, GameActionMessage> existingPlayers = roomPlayers.get(roomCode);
+        
+        // Try 100 times to find a good spot
+        for (int attempts = 0; attempts < 100; attempts++) {
+            int rx = rand.nextInt(size);
+            int ry = rand.nextInt(size);
+            
+            // Ensure walkable ground (IDs 0-7)
+            if (matrix[ry][rx] >= 0 && matrix[ry][rx] <= 7) {
+                double minDist = 100.0; // Assume far if no other players
+                
+                if (existingPlayers != null && !existingPlayers.isEmpty()) {
+                    for (GameActionMessage other : existingPlayers.values()) {
+                        if (other.getX() == null || other.getY() == null || other.getPlayerId().equals(message.getPlayerId())) continue;
+                        double dist = Math.sqrt(Math.pow(rx - other.getX(), 2) + Math.pow(ry - other.getY(), 2));
+                        if (dist < minDist) minDist = dist;
+                    }
+                }
+                
+                if (minDist > maxMinDist) {
+                    maxMinDist = minDist;
+                    bestX = rx;
+                    bestY = ry;
+                }
+                
+                // If we found a spot > 20 tiles away, it's good enough
+                if (maxMinDist > 20) break;
+            }
+        }
+        
+        message.setX(bestX);
+        message.setY(bestY);
+        message.setAction("TELEPORT"); // Force client to update position
+        System.out.println(">> ASSIGNED RANDOM SPAWN: " + message.getPlayerId() + " to [" + bestX + "," + bestY + "] dist=" + maxMinDist);
+    }
+
 
     public void updatePlayerState(GameActionMessage message) {
         String roomCode = message.getRoomCode().toUpperCase();
@@ -135,10 +257,39 @@ public class RoomManager {
                 if (message.getY() == null) message.setY(existing.getY());
                 if (message.getAimAngle() == null) message.setAimAngle(existing.getAimAngle());
                 
-                // Preserve server state (health, ammo, location)
+                // Preserve server state (health, ammo, location, paralyzed)
                 message.setHealth(existing.getHealth());
                 message.setAmmo(existing.getAmmo());
+                message.setParalyzed(existing.isParalyzed());
+                
+                // --- EXIT FROM BUNKER ---
+                String mode = getRoomMode(roomCode);
+                if ("world".equals(message.getLocation()) && "bunker".equals(existing.getLocation())) {
+                    if ("TORNEO".equals(mode)) {
+                        // In Tournament (BR), players appear in random locations
+                        assignRandomSpawn(message);
+                        System.out.println(">> TOURNAMENT ENTRY: Player " + message.getPlayerId() + " to random spot");
+                    } else {
+                        // In Survival (TRADICIONAL), players appear at the door (startX/startY)
+                        WorldMapDTO map = roomMaps.get(roomCode);
+                        if (map != null) {
+                            message.setX((double)map.getStartX());
+                            message.setY((double)map.getStartY());
+                            message.setAction("TELEPORT");
+                            System.out.println(">> SURVIVAL ENTRY: Player " + message.getPlayerId() + " to door [" + map.getStartX() + "," + map.getStartY() + "]");
+                        }
+                    }
+                }
+
+
+
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
+                
+                // Block movement if paralyzed
+                if (existing.isParalyzed()) {
+                    message.setX(existing.getX());
+                    message.setY(existing.getY());
+                }
                 
                 // --- ITEM COLLECTION CHECK ---
                 WorldMapDTO map = roomMaps.get(roomCode);
@@ -260,10 +411,12 @@ public class RoomManager {
         double vx = Math.cos(snappedAngle);
         double vy = Math.sin(snappedAngle);
 
-        // 3. Find the CLOSEST zombie along the ray within range 6.0 (Single Target)
+        // 3. Find the CLOSEST zombie OR player along the ray within range 6.0 (Single Target)
         ZombieState targetZombie = null;
+        GameActionMessage targetPlayer = null;
         double closestDist = 7.0; // Max range is 6.0
 
+        // Check Zombies
         for (ZombieState zombie : zombies) {
             double zx = zombie.getX() - px;
             double zy = zombie.getY() - py;
@@ -279,16 +432,48 @@ public class RoomManager {
                 if (dot < closestDist) {
                     closestDist = dot;
                     targetZombie = zombie;
+                    targetPlayer = null;
                 }
             }
         }
 
-        // 4. Apply damage only to the closest target
+        // Check other Players
+        String mode = roomModes.getOrDefault(roomCode, "TRADICIONAL");
+        if ("TORNEO".equals(mode) && "world".equals(message.getLocation())) {
+            for (GameActionMessage otherPlayer : players.values()) {
+                if (otherPlayer.getPlayerId().equals(message.getPlayerId())) continue;
+                if (otherPlayer.getHealth() <= 0) continue;
+                if (!"world".equals(otherPlayer.getLocation())) continue; // No damage to players in bunker
+
+                double ox = otherPlayer.getX() - px;
+                double oy = otherPlayer.getY() - py;
+                double dot = ox * vx + oy * vy;
+                double distSq = (ox * ox + oy * oy) - (dot * dot);
+
+                if (dot > 0 && dot < 6.0 && distSq < 0.2) {
+                    if (dot < closestDist) {
+                        closestDist = dot;
+                        targetZombie = null;
+                        targetPlayer = otherPlayer;
+                    }
+                }
+            }
+        }
+
+        // 4. Apply damage
         if (targetZombie != null) {
             targetZombie.setHealth(targetZombie.getHealth() - 34); 
             if (targetZombie.getHealth() <= 0) {
                 zombies.remove(targetZombie);
             }
+        } else if (targetPlayer != null) {
+            targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 20));
+            if (targetPlayer.getHealth() <= 0) {
+                registerElimination(roomCode, targetPlayer.getPlayerId());
+            }
+            String stateTopic = "/topic/game.state." + roomCode;
+            messagingTemplate.convertAndSend(stateTopic, targetPlayer);
+            System.out.println(">> PvP HIT! Victim: " + targetPlayer.getPlayerId() + " HP: " + targetPlayer.getHealth());
         }
     }
 
@@ -323,31 +508,40 @@ public class RoomManager {
     public void processRespawns() {
         long now = System.currentTimeMillis();
         for (String roomCode : roomPlayers.keySet()) {
+            String mode = getRoomMode(roomCode);
             Map<String, GameActionMessage> players = roomPlayers.get(roomCode);
             if (players == null) continue;
 
             for (GameActionMessage player : players.values()) {
                 if (player.getHealth() <= 0) {
+                    // SI ES TORNEO, NO HAY RESPAWN
+                    if ("TORNEO".equals(mode)) {
+                        continue;
+                    }
+
                     String timerKey = roomCode + ":" + player.getPlayerId();
                     deathTimers.putIfAbsent(timerKey, now);
                     long diedAt = deathTimers.get(timerKey);
                     
-                    if (now - diedAt >= 30000) { // 30 seconds
+                    if (now - diedAt >= 15000) { // 15 seconds
                         WorldMapDTO map = roomMaps.get(roomCode);
                         if (map != null) {
-                            // Revive exactly where they died (or at start if position was missing)
-                            if (player.getX() == null) player.setX((double)map.getStartX());
-                            if (player.getY() == null) player.setY((double)map.getStartY());
+                            // Respawn exactly at the door in Survival mode
+                            player.setX((double)map.getStartX());
+                            player.setY((double)map.getStartY());
+
                             
                             player.setHealth(100);
                             player.setAmmo(30);
-                            player.setAction("RESPAWN");
+                            player.setParalyzed(false);
+                            player.setAction("RESPAWN"); // Override TELEPORT to trigger respawn animation if any
+
                             
                             deathTimers.remove(timerKey);
                             
                             String stateTopic = "/topic/game.state." + roomCode;
                             messagingTemplate.convertAndSend(stateTopic, player);
-                            System.out.println(">> PLAYER RESPAWNED (AT SPOT): " + player.getPlayerId());
+                            System.out.println(">> PLAYER RESPAWNED (TRADICIONAL): " + player.getPlayerId());
                         }
                     }
                 } else {

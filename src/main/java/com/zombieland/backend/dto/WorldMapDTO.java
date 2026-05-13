@@ -6,6 +6,7 @@ public class WorldMapDTO {
     private int startY;
     private int endX;
     private int endY;
+    private java.util.List<int[]> doors;
 
     public WorldMapDTO() {
     }
@@ -56,5 +57,13 @@ public class WorldMapDTO {
 
     public void setEndY(int endY) {
         this.endY = endY;
+    }
+
+    public java.util.List<int[]> getDoors() {
+        return doors;
+    }
+
+    public void setDoors(java.util.List<int[]> doors) {
+        this.doors = doors;
     }
 }

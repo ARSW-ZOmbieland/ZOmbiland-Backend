@@ -11,7 +11,7 @@ public class MapGenerator {
     /**
      * Generates a 64x64 random map with tiles 0-7 and two distant bunker doors (10).
      */
-    public WorldMapDTO generateMap() {
+    public WorldMapDTO generateMap(String mode) {
         int size = 64;
         int[][] matrix = new int[size][size];
         Random rand = new Random();
@@ -126,19 +126,47 @@ public class MapGenerator {
             matrix[i][size - 1] = 90;    // Right edge
         }
 
-        // Pick start and end points ensuring they are far apart
-        int startX, startY, endX, endY;
-        do {
-            startX = rand.nextInt(size);
-            startY = rand.nextInt(size);
-            endX = rand.nextInt(size);
-            endY = rand.nextInt(size);
-        } while (Math.abs(startX - endX) + Math.abs(startY - endY) < 64); // Manhattan distance >= 64
+        // Doors are only placed in Supervivencia (TRADICIONAL) mode. 
+        // In TORNEO mode, they are removed to support the Battle Royale style gameplay.
+        List<int[]> doorList = new ArrayList<>();
+        int defaultStartX = 32;
+        int defaultStartY = 32;
 
-        // Place bunker doors
-        matrix[startY][startX] = 10;
-        matrix[endY][endX] = 10;
+        if (!"TORNEO".equals(mode)) {
+            int numDoors = 2;
+            int[][] doors = new int[numDoors][2];
+            for (int i = 0; i < numDoors; i++) {
+                boolean valid;
+                do {
+                    valid = true;
+                    doors[i][0] = rand.nextInt(size - 2) + 1;
+                    doors[i][1] = rand.nextInt(size - 2) + 1;
+                    for (int j = 0; j < i; j++) {
+                        if (Math.abs(doors[i][0] - doors[j][0]) + Math.abs(doors[i][1] - doors[j][1]) < 30) {
+                            valid = false;
+                            break;
+                        }
+                    }
+                } while (!valid);
+                
+                matrix[doors[i][1]][doors[i][0]] = 10; // Bunker Door
+                doorList.add(new int[]{doors[i][0], doors[i][1]});
+            }
+            if (!doorList.isEmpty()) {
+                defaultStartX = doorList.get(0)[0];
+                defaultStartY = doorList.get(0)[1];
+            }
+        }
 
-        return new WorldMapDTO(matrix, startX, startY, endX, endY);
+        WorldMapDTO dto = new WorldMapDTO();
+        dto.setMatrix(matrix);
+        dto.setStartX(defaultStartX); 
+        dto.setStartY(defaultStartY);
+        dto.setDoors(doorList);
+
+
+
+        
+        return dto;
     }
 }
