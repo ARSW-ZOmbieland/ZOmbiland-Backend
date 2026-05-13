@@ -33,12 +33,16 @@ public class RoomManager {
     // roomCode -> Boolean (isPaused)
     private final ConcurrentHashMap<String, Boolean> roomPausedStates = new ConcurrentHashMap<>();
     
+    // roomCode -> String (mode: "coop" or "torneo")
+    private final ConcurrentHashMap<String, String> roomModes = new ConcurrentHashMap<>();
+    
     // Explicitly generated room codes
     private final Set<String> validRooms = ConcurrentHashMap.newKeySet();
 
     // roomCode:playerId -> Timestamp of death
     private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
+<<<<<<< HEAD
     // roomCode:playerId -> set of eliminated players (Tournament only)
     private final Set<String> eliminatedPlayers = ConcurrentHashMap.newKeySet();
 
@@ -48,12 +52,18 @@ public class RoomManager {
     // roomCode -> startTime (millis)
     private final ConcurrentHashMap<String, Long> roomStartTimes = new ConcurrentHashMap<>();
 
+=======
+>>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
     public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
         String finalMode = mode != null ? mode.toUpperCase() : "TRADICIONAL";
         validRooms.add(code);
+<<<<<<< HEAD
         roomModes.put(code, finalMode);
         roomStartTimes.put(code, System.currentTimeMillis());
+=======
+        roomModes.put(code, mode);
+>>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
         WorldMapDTO map = mapGenerator.generateMap(finalMode);
         roomMaps.putIfAbsent(code, map);
@@ -411,7 +421,11 @@ public class RoomManager {
         double vx = Math.cos(snappedAngle);
         double vy = Math.sin(snappedAngle);
 
+<<<<<<< HEAD
         // 3. Find the CLOSEST zombie OR player along the ray within range 6.0 (Single Target)
+=======
+        // 3. Find the CLOSEST entity along the ray within range 6.0
+>>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         ZombieState targetZombie = null;
         GameActionMessage targetPlayer = null;
         double closestDist = 7.0; // Max range is 6.0
@@ -433,6 +447,31 @@ public class RoomManager {
                     closestDist = dot;
                     targetZombie = zombie;
                     targetPlayer = null;
+<<<<<<< HEAD
+=======
+                }
+            }
+        }
+
+        // Si es torneo, chequear también si la bala golpea a otros jugadores
+        String mode = roomModes.getOrDefault(roomCode, "coop");
+        if ("torneo".equals(mode)) {
+            for (GameActionMessage p : players.values()) {
+                if (p.getPlayerId().equals(message.getPlayerId()) || p.getHealth() <= 0) continue;
+                if (p.getX() == null || p.getY() == null) continue;
+                
+                double zx = p.getX() - px;
+                double zy = p.getY() - py;
+                double dot = zx * vx + zy * vy;
+                double distSq = (zx * zx + zy * zy) - (dot * dot);
+                
+                if (dot > 0 && dot < 6.0 && distSq < 0.2) { 
+                    if (dot < closestDist) {
+                        closestDist = dot;
+                        targetPlayer = p;
+                        targetZombie = null;
+                    }
+>>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
                 }
             }
         }
@@ -465,8 +504,11 @@ public class RoomManager {
             targetZombie.setHealth(targetZombie.getHealth() - 34); 
             if (targetZombie.getHealth() <= 0) {
                 zombies.remove(targetZombie);
+                serverState.setKills(serverState.getKills() + 1);
+                message.setKills(serverState.getKills());
             }
         } else if (targetPlayer != null) {
+<<<<<<< HEAD
             targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 20));
             if (targetPlayer.getHealth() <= 0) {
                 registerElimination(roomCode, targetPlayer.getPlayerId());
@@ -474,6 +516,16 @@ public class RoomManager {
             String stateTopic = "/topic/game.state." + roomCode;
             messagingTemplate.convertAndSend(stateTopic, targetPlayer);
             System.out.println(">> PvP HIT! Victim: " + targetPlayer.getPlayerId() + " HP: " + targetPlayer.getHealth());
+=======
+            targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 34));
+            if (targetPlayer.getHealth() <= 0) {
+                serverState.setKills(serverState.getKills() + 1);
+                message.setKills(serverState.getKills());
+            }
+            // Sincronizar el daño al otro jugador
+            String stateTopic = "/topic/game.state." + roomCode;
+            messagingTemplate.convertAndSend(stateTopic, targetPlayer);
+>>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         }
     }
 
