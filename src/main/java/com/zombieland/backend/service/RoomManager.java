@@ -33,16 +33,12 @@ public class RoomManager {
     // roomCode -> Boolean (isPaused)
     private final ConcurrentHashMap<String, Boolean> roomPausedStates = new ConcurrentHashMap<>();
     
-    // roomCode -> String (mode: "coop" or "torneo")
-    private final ConcurrentHashMap<String, String> roomModes = new ConcurrentHashMap<>();
-    
     // Explicitly generated room codes
     private final Set<String> validRooms = ConcurrentHashMap.newKeySet();
 
     // roomCode:playerId -> Timestamp of death
     private final ConcurrentHashMap<String, Long> deathTimers = new ConcurrentHashMap<>();
 
-<<<<<<< HEAD
     // roomCode:playerId -> set of eliminated players (Tournament only)
     private final Set<String> eliminatedPlayers = ConcurrentHashMap.newKeySet();
 
@@ -52,18 +48,12 @@ public class RoomManager {
     // roomCode -> startTime (millis)
     private final ConcurrentHashMap<String, Long> roomStartTimes = new ConcurrentHashMap<>();
 
-=======
->>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
     public void createRoom(String roomCode, String mode) {
         String code = roomCode.toUpperCase();
         String finalMode = mode != null ? mode.toUpperCase() : "TRADICIONAL";
         validRooms.add(code);
-<<<<<<< HEAD
         roomModes.put(code, finalMode);
         roomStartTimes.put(code, System.currentTimeMillis());
-=======
-        roomModes.put(code, mode);
->>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         roomPlayers.putIfAbsent(code, new ConcurrentHashMap<>());
         WorldMapDTO map = mapGenerator.generateMap(finalMode);
         roomMaps.putIfAbsent(code, map);
@@ -72,48 +62,48 @@ public class RoomManager {
         
         // Spawn Zombies only if NOT in Torneo mode
         if (!"TORNEO".equals(finalMode)) {
-        Random rand = new Random();
-        int[][] matrix = map.getMatrix();
-        
-        for (int i = 1; i <= 40; i++) {
-            int rx = 0, ry = 0;
-            boolean found = false;
-            // Seek a walkable position (Ground tiles 0-7)
-            for (int attempts = 0; attempts < 100; attempts++) {
-                int tx = rand.nextInt(matrix[0].length);
-                int ty = rand.nextInt(matrix.length);
-                int tile = matrix[ty][tx];
-                if (tile >= 0 && tile <= 7) {
-                    rx = tx;
-                    ry = ty;
-                    found = true;
-                    break;
-                }
-            }
-            // Fallback to start position if no random walkable found (unlikely)
-            if (!found) {
-                rx = (int)map.getStartX() + (i % 3);
-                ry = (int)map.getStartY() + (i / 3);
-            }
+            Random rand = new Random();
+            int[][] matrix = map.getMatrix();
             
-            // Distribución equilibrada de tipos
-            String type;
-            int chance = rand.nextInt(100);
-            if (chance < 35) {
-                type = "comun";
-            } else if (chance < 60) {
-                type = "chasqueador";
-            } else if (chance < 80) {
-                type = "tanke";
-            } else {
-                type = "hunter";
+            for (int i = 1; i <= 40; i++) {
+                int rx = 0, ry = 0;
+                boolean found = false;
+                // Seek a walkable position (Ground tiles 0-7)
+                for (int attempts = 0; attempts < 100; attempts++) {
+                    int tx = rand.nextInt(matrix[0].length);
+                    int ty = rand.nextInt(matrix.length);
+                    int tile = matrix[ty][tx];
+                    if (tile >= 0 && tile <= 7) {
+                        rx = tx;
+                        ry = ty;
+                        found = true;
+                        break;
+                    }
+                }
+                // Fallback to start position if no random walkable found (unlikely)
+                if (!found) {
+                    rx = (int)map.getStartX() + (i % 3);
+                    ry = (int)map.getStartY() + (i / 3);
+                }
+                
+                // Distribución equilibrada de tipos
+                String type;
+                int chance = rand.nextInt(100);
+                if (chance < 35) {
+                    type = "comun";
+                } else if (chance < 60) {
+                    type = "chasqueador";
+                } else if (chance < 80) {
+                    type = "tanke";
+                } else {
+                    type = "hunter";
+                }
+                ZombieState newZombie = new ZombieState("zombie-" + i, rx, ry, "abajo", type);
+                if ("tanke".equals(type)) {
+                    newZombie.setHealth(680); // 20 disparos de 34 cada uno
+                }
+                zombies.add(newZombie);
             }
-            ZombieState newZombie = new ZombieState("zombie-" + i, rx, ry, "abajo", type);
-            if ("tanke".equals(type)) {
-                newZombie.setHealth(680); // 20 disparos de 34 cada uno
-            }
-            zombies.add(newZombie);
-        }
         } // Cierre del if de zombies
         
         roomZombies.put(code, zombies);
@@ -194,7 +184,6 @@ public class RoomManager {
         
         players.put(playerId, message);
 
-
         sessionTrackers.put(sessionId, new PlayerSessionInfo(roomCode, playerId));
         return true;
     }
@@ -247,7 +236,6 @@ public class RoomManager {
         System.out.println(">> ASSIGNED RANDOM SPAWN: " + message.getPlayerId() + " to [" + bestX + "," + bestY + "] dist=" + maxMinDist);
     }
 
-
     public void updatePlayerState(GameActionMessage message) {
         String roomCode = message.getRoomCode().toUpperCase();
         
@@ -290,8 +278,6 @@ public class RoomManager {
                         }
                     }
                 }
-
-
 
                 if (message.getLocation() == null) message.setLocation(existing.getLocation());
                 
@@ -421,11 +407,7 @@ public class RoomManager {
         double vx = Math.cos(snappedAngle);
         double vy = Math.sin(snappedAngle);
 
-<<<<<<< HEAD
         // 3. Find the CLOSEST zombie OR player along the ray within range 6.0 (Single Target)
-=======
-        // 3. Find the CLOSEST entity along the ray within range 6.0
->>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         ZombieState targetZombie = null;
         GameActionMessage targetPlayer = null;
         double closestDist = 7.0; // Max range is 6.0
@@ -447,31 +429,6 @@ public class RoomManager {
                     closestDist = dot;
                     targetZombie = zombie;
                     targetPlayer = null;
-<<<<<<< HEAD
-=======
-                }
-            }
-        }
-
-        // Si es torneo, chequear también si la bala golpea a otros jugadores
-        String mode = roomModes.getOrDefault(roomCode, "coop");
-        if ("torneo".equals(mode)) {
-            for (GameActionMessage p : players.values()) {
-                if (p.getPlayerId().equals(message.getPlayerId()) || p.getHealth() <= 0) continue;
-                if (p.getX() == null || p.getY() == null) continue;
-                
-                double zx = p.getX() - px;
-                double zy = p.getY() - py;
-                double dot = zx * vx + zy * vy;
-                double distSq = (zx * zx + zy * zy) - (dot * dot);
-                
-                if (dot > 0 && dot < 6.0 && distSq < 0.2) { 
-                    if (dot < closestDist) {
-                        closestDist = dot;
-                        targetPlayer = p;
-                        targetZombie = null;
-                    }
->>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
                 }
             }
         }
@@ -508,7 +465,6 @@ public class RoomManager {
                 message.setKills(serverState.getKills());
             }
         } else if (targetPlayer != null) {
-<<<<<<< HEAD
             targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 20));
             if (targetPlayer.getHealth() <= 0) {
                 registerElimination(roomCode, targetPlayer.getPlayerId());
@@ -516,16 +472,6 @@ public class RoomManager {
             String stateTopic = "/topic/game.state." + roomCode;
             messagingTemplate.convertAndSend(stateTopic, targetPlayer);
             System.out.println(">> PvP HIT! Victim: " + targetPlayer.getPlayerId() + " HP: " + targetPlayer.getHealth());
-=======
-            targetPlayer.setHealth(Math.max(0, targetPlayer.getHealth() - 34));
-            if (targetPlayer.getHealth() <= 0) {
-                serverState.setKills(serverState.getKills() + 1);
-                message.setKills(serverState.getKills());
-            }
-            // Sincronizar el daño al otro jugador
-            String stateTopic = "/topic/game.state." + roomCode;
-            messagingTemplate.convertAndSend(stateTopic, targetPlayer);
->>>>>>> f87f1c6130169268f61aab7fe4775d1343c1de56
         }
     }
 
@@ -582,13 +528,11 @@ public class RoomManager {
                             player.setX((double)map.getStartX());
                             player.setY((double)map.getStartY());
 
-                            
                             player.setHealth(100);
                             player.setAmmo(30);
                             player.setParalyzed(false);
                             player.setAction("RESPAWN"); // Override TELEPORT to trigger respawn animation if any
 
-                            
                             deathTimers.remove(timerKey);
                             
                             String stateTopic = "/topic/game.state." + roomCode;
@@ -603,4 +547,3 @@ public class RoomManager {
         }
     }
 }
-
