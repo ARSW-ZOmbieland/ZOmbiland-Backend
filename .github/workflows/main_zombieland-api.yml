@@ -1,0 +1,52 @@
+name: Build and deploy Docker app to Azure Web App - zombieland-api
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/arsw-zombieland/zombieland-backend:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_8045EC3D987446D6B738090806104203 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4218B9EC7C4649658ED1E70C0A4C7993 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_B42DADB2D0964DD5B429F9844F9E5B9B }}
+
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'zombieland-api-eci'
+          slot-name: 'Production'
+          images: ghcr.io/${{ github.repository_owner }}/zombieland-backend:latest
