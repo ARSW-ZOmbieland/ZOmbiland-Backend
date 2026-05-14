@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: zombieland-backend
+    env: docker
+    dockerContext: .
+    dockerfilePath: Dockerfile
+    plan: free # Change this if needed
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
