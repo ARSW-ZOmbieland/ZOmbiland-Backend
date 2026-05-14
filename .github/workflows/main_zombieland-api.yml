@@ -47,6 +47,6 @@ jobs:
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'zombieland-api'
+          app-name: 'zombieland-api-eci'
           slot-name: 'Production'
           images: ghcr.io/${{ github.repository_owner }}/zombieland-backend:latest
