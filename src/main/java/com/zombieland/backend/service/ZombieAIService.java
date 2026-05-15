@@ -33,6 +33,7 @@ public class ZombieAIService {
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> isPursuing = new java.util.concurrent.ConcurrentHashMap<>();
 
     private int moveTickCounter = 0;
+    private int cleanupTickCounter = 0;
 
     public ZombieAIService(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
         this.roomManager = roomManager;
@@ -82,6 +83,35 @@ public class ZombieAIService {
             String topic = "/topic/game.zombies." + roomCode;
             messagingTemplate.convertAndSend(topic, zombies);
         }
+
+        // --- NEW: Global State Cleanup Logic ---
+        // Runs every 20 ticks (~7 seconds at 350ms rate) to prevent memory leaks
+        cleanupTickCounter++;
+        if (cleanupTickCounter >= 20) {
+            cleanupTickCounter = 0;
+            performGlobalCleanup();
+        }
+    }
+
+    private void performGlobalCleanup() {
+        Set<String> activeZombieIds = new java.util.HashSet<>();
+        Set<String> activeRooms = roomManager.getAllActiveRooms();
+        
+        for (String roomCode : activeRooms) {
+            List<ZombieState> zombies = roomManager.getZombiesInRoom(roomCode);
+            for (ZombieState z : zombies) {
+                activeZombieIds.add(z.getId());
+            }
+        }
+
+        // Clean maps using zombieId as key
+        lastAttackTime.keySet().removeIf(key -> !activeZombieIds.contains(key.split(":")[0]));
+        zombieVisualAttackTime.keySet().removeIf(id -> !activeZombieIds.contains(id));
+        attackStartedAt.keySet().removeIf(key -> !activeZombieIds.contains(key.split(":")[0]));
+        lastTeleportTime.keySet().removeIf(id -> !activeZombieIds.contains(id));
+        isPursuing.keySet().removeIf(id -> !activeZombieIds.contains(id));
+        
+        System.out.println(">> AI CLEANUP: Purged stale tracking data. Active Zombies: " + activeZombieIds.size());
     }
 
     private void moveZombieTowardsClosestPlayer(ZombieState zombie, Collection<GameActionMessage> players, int[][] matrix) {
