@@ -39,7 +39,7 @@ public class ZombieAIService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 200) // Ticks cada 200ms
+    @Scheduled(fixedRate = 350) // Ajustado de 200ms a 350ms para mejorar rendimiento y reducir lag
     public void updateZombies() {
         moveTickCounter++;
         if (moveTickCounter > 100) moveTickCounter = 1; // Reset prevent overflow
