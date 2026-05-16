@@ -10,6 +10,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Servicio encargado de gestionar la lógica del modo torneo (Battle Royale).
+ * Controla la reducción de la zona, el daño por zona y la determinación del ganador.
+ */
 @Service
 public class TournamentService {
 
@@ -21,7 +25,12 @@ public class TournamentService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 1000) // Cada segundo
+    /**
+     * Tarea programada que procesa las zonas del torneo cada segundo.
+     * Calcula el radio de la zona segura, aplica daño a los jugadores fuera de ella
+     * y verifica si hay un ganador.
+     */
+    @Scheduled(fixedRate = 1000)
     public void processTournamentZones() {
         Set<String> rooms = roomManager.getAllActiveRooms();
         long now = System.currentTimeMillis();
@@ -35,7 +44,6 @@ public class TournamentService {
 
             long elapsedSeconds = (now - startTime) / 1000;
             
-            // Victoria por eliminación: Contar jugadores vivos
             Collection<GameActionMessage> players = roomManager.getRoomState(roomCode);
             GameActionMessage winner = null;
             int aliveCount = 0;
@@ -47,24 +55,20 @@ public class TournamentService {
                 }
             }
 
-            // Si solo queda 1 jugador y había más de 1 al inicio (o ha pasado tiempo suficiente)
             if (aliveCount == 1 && players.size() > 1) {
                 handleTournamentWin(roomCode, winner.getPlayerId());
                 continue;
             }
 
             if (elapsedSeconds > 300) {
-                // Empate o muerte súbita (todos mueren)
                 handleTournamentEnd(roomCode);
                 continue;
             }
 
-            // Calcular radio de la zona (de 50 a 0 en 300 segundos)
             double maxRadius = 50.0;
             double currentRadius = maxRadius * (1.0 - (double) elapsedSeconds / 300.0);
             if (currentRadius < 0) currentRadius = 0;
 
-            // Centro del mapa (32, 32)
             double centerX = 32.0;
             double centerY = 32.0;
 
@@ -77,7 +81,6 @@ public class TournamentService {
                 double dist = Math.sqrt(dx * dx + dy * dy);
 
                 if (dist > currentRadius) {
-                    // Daño por zona
                     player.setHealth(Math.max(0, player.getHealth() - 5));
                     
                     if (player.getHealth() <= 0) {
@@ -88,7 +91,6 @@ public class TournamentService {
                 }
             }
 
-            // Enviar el estado de la zona
             Map<String, Object> zoneStatus = new ConcurrentHashMap<>();
             zoneStatus.put("radius", currentRadius);
             zoneStatus.put("timeLeft", 300 - (int)elapsedSeconds);
@@ -96,16 +98,25 @@ public class TournamentService {
         }
     }
 
+    /**
+     * Gestiona la victoria de un jugador en el torneo.
+     * Notifica a todos los jugadores en la sala sobre el ganador.
+     * 
+     * @param roomCode El código de la sala.
+     * @param playerId El ID del jugador ganador.
+     */
     private void handleTournamentWin(String roomCode, String playerId) {
-        System.out.println(">> TOURNAMENT WINNER in " + roomCode + ": " + playerId);
         Map<String, Object> winData = new ConcurrentHashMap<>();
         winData.put("action", "TOURNAMENT_WIN");
         winData.put("winnerId", playerId);
         messagingTemplate.convertAndSend("/topic/game.state." + roomCode, (Object) winData);
-        
-        // Opcional: Cerrar la sala después de unos segundos o dejar que vean el resultado
     }
 
+    /**
+     * Gestiona el fin del torneo por tiempo agotado.
+     * 
+     * @param roomCode El código de la sala.
+     */
     private void handleTournamentEnd(String roomCode) {
         Map<String, Object> endData = new ConcurrentHashMap<>();
         endData.put("action", "TOURNAMENT_END");

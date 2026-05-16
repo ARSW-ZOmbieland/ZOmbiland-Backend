@@ -6,6 +6,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+/**
+ * Servicio encargado de la autenticación y gestión de usuarios a través de OAuth2.
+ */
 @Service
 public class AuthService {
 
@@ -16,9 +19,15 @@ public class AuthService {
     }
 
     /**
-     * Procesa la información del usuario obtenida de OAuth2 (Google),
-     * lo busca en la base de datos o crea uno nuevo,
-     * y actualiza su última fecha de conexión.
+     * Procesa la información del usuario obtenida tras el inicio de sesión con OAuth2 (Google).
+     * Busca al usuario en la base de datos por su ID de Google; si no existe, crea uno nuevo.
+     * Actualiza los datos del perfil y la fecha de última conexión.
+     * 
+     * @param googleId El ID único del usuario en Google.
+     * @param name El nombre del usuario.
+     * @param email El correo electrónico del usuario.
+     * @param imageUrl La URL de la imagen de perfil del usuario.
+     * @return El objeto User actualizado o creado.
      */
     public User processOAuthPostLogin(String googleId, String name, String email, String imageUrl) {
         User user = userRepository.findByGoogleId(googleId)
