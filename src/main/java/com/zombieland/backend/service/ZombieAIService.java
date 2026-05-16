@@ -11,25 +11,29 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Servicio encargado de la inteligencia artificial (IA) de los zombis.
+ * Controla el movimiento, el ataque y el comportamiento de los diferentes tipos de zombis en el juego.
+ */
 @Service
 public class ZombieAIService {
 
     private final RoomManager roomManager;
     private final SimpMessagingTemplate messagingTemplate;
     
-    // zombieId + playerId -> lastAttackTimestamp
+    /** Mapa de zombieId + playerId al último momento en que se realizó un ataque. */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> lastAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
     
-    // zombieId -> lastVisualAttackTimestamp
+    /** Mapa de zombieId al último momento en que se realizó un ataque visual. */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> zombieVisualAttackTime = new java.util.concurrent.ConcurrentHashMap<>();
     
-    // zombieId + playerId -> timestamp when pursuit/wind-up started
+    /** Mapa de zombieId + playerId al momento en que comenzó la persecución o preparación del ataque. */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> attackStartedAt = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // zombieId -> lastTeleportTimestamp
+    /** Mapa de zombieId al último momento en que se realizó un teletransporte. */
     private final java.util.concurrent.ConcurrentHashMap<String, Long> lastTeleportTime = new java.util.concurrent.ConcurrentHashMap<>();
 
-    // zombieId -> is currently pursuing a player
+    /** Mapa de zombieId para rastrear si actualmente está persiguiendo a un jugador. */
     private final java.util.concurrent.ConcurrentHashMap<String, Boolean> isPursuing = new java.util.concurrent.ConcurrentHashMap<>();
 
     private int moveTickCounter = 0;
@@ -40,10 +44,14 @@ public class ZombieAIService {
         this.messagingTemplate = messagingTemplate;
     }
 
-    @Scheduled(fixedRate = 350) // Ajustado de 200ms a 350ms para mejorar rendimiento y reducir lag
+    /**
+     * Tarea programada que actualiza el estado de todos los zombis en todas las salas activas.
+     * Gestiona el movimiento, los ataques y el envío de estados a los clientes.
+     */
+    @Scheduled(fixedRate = 350)
     public void updateZombies() {
         moveTickCounter++;
-        if (moveTickCounter > 100) moveTickCounter = 1; // Reset prevent overflow
+        if (moveTickCounter > 100) moveTickCounter = 1;
 
         Set<String> activeRooms = roomManager.getAllActiveRooms();
         
@@ -57,20 +65,18 @@ public class ZombieAIService {
             if (zombies.isEmpty() || players.isEmpty() || map == null) continue;
 
             for (ZombieState zombie : zombies) {
-                // Actualizar estado visual de ataque
                 long lastVisual = zombieVisualAttackTime.getOrDefault(zombie.getId(), 0L);
                 zombie.setAttacking(System.currentTimeMillis() - lastVisual < 600);
 
-                // Lógica de velocidad diferenciada
                 String type = zombie.getType();
                 int moveRate;
                 
                 if ("hunter".equals(type) || "chasqueador".equals(type)) {
-                    moveRate = 2; // Rápido: 400ms
+                    moveRate = 2; 
                 } else if ("tanke".equals(type)) {
-                    moveRate = 5; // Lento: 1.0s (Un poco menos que el común)
+                    moveRate = 5; 
                 } else {
-                    moveRate = 4; // Normal (Comun): 800ms
+                    moveRate = 4; 
                 }
 
                 if (moveTickCounter % moveRate == 0) {
@@ -79,13 +85,10 @@ public class ZombieAIService {
                 checkAndDamagePlayers(zombie, players, roomCode, map.getMatrix());
             }
 
-            // Broadcast
             String topic = "/topic/game.zombies." + roomCode;
             messagingTemplate.convertAndSend(topic, zombies);
         }
 
-        // --- NEW: Global State Cleanup Logic ---
-        // Runs every 20 ticks (~7 seconds at 350ms rate) to prevent memory leaks
         cleanupTickCounter++;
         if (cleanupTickCounter >= 20) {
             cleanupTickCounter = 0;
@@ -93,6 +96,10 @@ public class ZombieAIService {
         }
     }
 
+    /**
+     * Realiza una limpieza global de los datos de seguimiento obsoletos para evitar fugas de memoria.
+     * Elimina entradas de zombis que ya no están activos en ninguna sala.
+     */
     private void performGlobalCleanup() {
         Set<String> activeZombieIds = new java.util.HashSet<>();
         Set<String> activeRooms = roomManager.getAllActiveRooms();
@@ -104,21 +111,25 @@ public class ZombieAIService {
             }
         }
 
-        // Clean maps using zombieId as key
         lastAttackTime.keySet().removeIf(key -> !activeZombieIds.contains(key.split(":")[0]));
         zombieVisualAttackTime.keySet().removeIf(id -> !activeZombieIds.contains(id));
         attackStartedAt.keySet().removeIf(key -> !activeZombieIds.contains(key.split(":")[0]));
         lastTeleportTime.keySet().removeIf(id -> !activeZombieIds.contains(id));
         isPursuing.keySet().removeIf(id -> !activeZombieIds.contains(id));
-        
-        System.out.println(">> AI CLEANUP: Purged stale tracking data. Active Zombies: " + activeZombieIds.size());
     }
 
+    /**
+     * Mueve un zombi hacia el jugador vivo más cercano.
+     * Implementa lógica diferenciada según el tipo de zombi (visión, teletransporte, persecución).
+     * 
+     * @param zombie El zombi que se va a mover.
+     * @param players La colección de jugadores en la sala.
+     * @param matrix La matriz del mapa para verificar colisiones.
+     */
     private void moveZombieTowardsClosestPlayer(ZombieState zombie, Collection<GameActionMessage> players, int[][] matrix) {
         GameActionMessage target = null;
         double minDistance = Double.MAX_VALUE;
 
-        // Buscar al jugador más cercano que esté vivo
         for (GameActionMessage player : players) {
             if (player.getHealth() <= 0) continue; 
 
@@ -129,48 +140,39 @@ public class ZombieAIService {
             }
         }
 
-        // LÓGICA DE VISIÓN DIFERENCIADA
         String type = zombie.getType();
-        boolean isChasqueador = "chasqueador".equals(type);
         boolean isHunter = "hunter".equals(type);
 
-        // Si no hay nadie vivo en el mapa
         if (target == null) {
             performRandomWander(zombie, matrix);
             return;
         }
 
-        // LÓGICA ESPECIAL HUNTER: Teletransporte
         if (isHunter && minDistance <= 6.0) {
             long now = System.currentTimeMillis();
             long lastTeleport = lastTeleportTime.getOrDefault(zombie.getId(), 0L);
             
-            // Cooldown de 3 segundos para teletransporte
             if (now - lastTeleport >= 3000) {
                 zombie.setX(target.getX());
                 zombie.setY(target.getY());
-                zombie.setDirection("abajo"); // Reset direction after jump
+                zombie.setDirection("abajo"); 
                 lastTeleportTime.put(zombie.getId(), now);
-                System.out.println(">> HUNTER TELEPORTED to " + target.getPlayerId());
-                return; // Ya se movió por este tick
+                return; 
             }
         }
 
-        // LÓGICA DE VISIÓN Y PERSECUCIÓN
         boolean isGlobalFollower = "comun".equals(type) || "tanke".equals(type);
         boolean pursuing = isPursuing.getOrDefault(zombie.getId(), false);
 
         if (!isGlobalFollower && !pursuing) {
             if (minDistance <= 6.0) {
                 isPursuing.put(zombie.getId(), true);
-                System.out.println(">> ZOMBIE " + type + " SPOTTED PLAYER! Pursuit started.");
             } else {
                 performRandomWander(zombie, matrix);
                 return;
             }
         }
 
-        // LÓGICA DE PÉRDIDA DE VISIÓN (Solo para los que no son seguidores globales)
         if (!isGlobalFollower && minDistance > 8.0) {
             isPursuing.put(zombie.getId(), false);
             performRandomWander(zombie, matrix);
@@ -182,7 +184,6 @@ public class ZombieAIService {
 
         if (dx == 0 && dy == 0) return;
 
-        // Try to move on the axis with the largest distance first (Greedy)
         if (Math.abs(dx) > Math.abs(dy)) {
             if (!tryMoveX(zombie, dx, matrix)) {
                 tryMoveY(zombie, dy, matrix);
@@ -194,19 +195,32 @@ public class ZombieAIService {
         }
     }
 
+    /**
+     * Realiza un movimiento aleatorio para el zombi.
+     * 
+     * @param zombie El zombi que se va a mover.
+     * @param matrix La matriz del mapa para verificar colisiones.
+     */
     private void performRandomWander(ZombieState zombie, int[][] matrix) {
-        // Probabilidad de moverse al azar (25% cada vez que le toca moverse)
         if (Math.random() > 0.25) return;
 
         int randomDir = (int)(Math.random() * 4);
         switch(randomDir) {
-            case 0: tryMoveX(zombie, 1, matrix); break;  // Derecha
-            case 1: tryMoveX(zombie, -1, matrix); break; // Izquierda
-            case 2: tryMoveY(zombie, 1, matrix); break;  // Abajo
-            case 3: tryMoveY(zombie, -1, matrix); break; // Arriba
+            case 0: tryMoveX(zombie, 1, matrix); break;
+            case 1: tryMoveX(zombie, -1, matrix); break;
+            case 2: tryMoveY(zombie, 1, matrix); break;
+            case 3: tryMoveY(zombie, -1, matrix); break;
         }
     }
 
+    /**
+     * Intenta mover al zombi en el eje X.
+     * 
+     * @param zombie El zombi que se va a mover.
+     * @param dx El desplazamiento en el eje X.
+     * @param matrix La matriz del mapa para verificar colisiones.
+     * @return true si el movimiento fue exitoso, false en caso contrario.
+     */
     private boolean tryMoveX(ZombieState zombie, double dx, int[][] matrix) {
         int stepX = dx > 0 ? 1 : -1;
         int nextX = (int) zombie.getX() + stepX;
@@ -220,6 +234,14 @@ public class ZombieAIService {
         return false;
     }
 
+    /**
+     * Intenta mover al zombi en el eje Y.
+     * 
+     * @param zombie El zombi que se va a mover.
+     * @param dy El desplazamiento en el eje Y.
+     * @param matrix La matriz del mapa para verificar colisiones.
+     * @return true si el movimiento fue exitoso, false en caso contrario.
+     */
     private boolean tryMoveY(ZombieState zombie, double dy, int[][] matrix) {
         int stepY = dy > 0 ? 1 : -1;
         int currentX = (int) zombie.getX();
@@ -233,47 +255,49 @@ public class ZombieAIService {
         return false;
     }
 
+    /**
+     * Verifica la proximidad de los jugadores al zombi y aplica daño si es necesario.
+     * Implementa lógica de preparación de ataque (wind-up) y daño variable según el tipo de zombi.
+     * 
+     * @param zombie El zombi que ataca.
+     * @param players La colección de jugadores en la sala.
+     * @param roomCode El código de la sala.
+     * @param matrix La matriz del mapa para verificar transitabilidad.
+     */
     private void checkAndDamagePlayers(ZombieState zombie, Collection<GameActionMessage> players, String roomCode, int[][] matrix) {
         long now = System.currentTimeMillis();
         for (GameActionMessage player : players) {
-            if (player.getHealth() <= 0) continue; // No dañar muertos
+            if (player.getHealth() <= 0) continue; 
 
-            // Bloqueo de daño en búnker
             if (player.getX() == null || player.getY() == null) continue;
             if (!isWalkable(matrix, player.getX().intValue(), player.getY().intValue())) continue;
 
             double dist = Math.abs(player.getX() - zombie.getX()) + Math.abs(player.getY() - zombie.getY());
             String attackKey = zombie.getId() + ":" + player.getPlayerId();
 
-            // Si el zombie está cerca (adyacente o encima)
             if (dist <= 1.1) {
-                // Iniciar contador de "wind-up" si no existe
                 attackStartedAt.putIfAbsent(attackKey, now);
                 long startedAt = attackStartedAt.get(attackKey);
                 long lastDamage = lastAttackTime.getOrDefault(attackKey, 0L);
 
-                // Requisito 1: Delay inicial de 0.5s antes del primer daño
                 if (now - startedAt < 500) {
-                    // Animación visual inmediata al empezar el wind-up
                     zombie.setAttacking(true);
                     continue; 
                 }
 
-                // Requisito 2: Intervalo de daño normal (cada 1.0s) tras el primer golpe
                 if (now - lastDamage >= 1000) {
                     int currentHealth = player.getHealth();
                     if (currentHealth > 0) {
-                        // Requisito 3: Daño variable según TIPO y DISTANCIA
                         String type = zombie.getType();
                         int damageAmount;
 
                         if ("tanke".equals(type)) {
-                            damageAmount = 50; // Dos golpes matan (HP 100)
+                            damageAmount = 50; 
                         } else if ("hunter".equals(type)) {
                             damageAmount = (dist < 0.2) ? 15 : 5;
 
                         } else {
-                            damageAmount = (dist < 0.2) ? 20 : 8; // Comun y Chasqueador
+                            damageAmount = (dist < 0.2) ? 20 : 8; 
                         }
 
                         int newHealth = Math.max(0, currentHealth - damageAmount);
@@ -285,28 +309,33 @@ public class ZombieAIService {
                         
                         String stateTopic = "/topic/game.state." + roomCode;
                         messagingTemplate.convertAndSend(stateTopic, player);
-                        
-                        System.out.println(">> ZOMBIE ATTACK! Dist: " + dist + " Damage: " + damageAmount + " HP: " + newHealth);
                     }
                 }
             } else {
-                // Si el jugador se alejó, resetear el wind-up para que cuando vuelva a entrar tarde otros 0.5s
                 attackStartedAt.remove(attackKey);
             }
         }
     }
 
+    /**
+     * Verifica si una posición en el mapa es transitable.
+     * Sincronizado lógicamente con el motor de juego del frontend.
+     * 
+     * @param matrix La matriz del mapa.
+     * @param x La coordenada X.
+     * @param y La coordenada Y.
+     * @return true si la posición es transitable, false en caso contrario.
+     */
     private boolean isWalkable(int[][] matrix, int x, int y) {
         if (y < 0 || y >= matrix.length || x < 0 || x >= matrix[0].length) return false;
         int tile = matrix[y][x];
         
-        // Logical sync with GameEngine.js (Frontend)
-        if (tile >= 0 && tile <= 7) return true;  // Ground
-        if (tile >= 20 && tile <= 22) return true; // Bushes
-        if (tile == 72) return true;              // Street lights
-        if (tile == 100) return true;             // Medkit
-        if (tile == 101) return true;             // Ammo Pickup
+        if (tile >= 0 && tile <= 7) return true;  
+        if (tile >= 20 && tile <= 22) return true; 
+        if (tile == 72) return true;              
+        if (tile == 100) return true;             
+        if (tile == 101) return true;             
         
-        return false; // Solid objects are >= 10 and not in the "walkable exceptions"
+        return false; 
     }
 }
