@@ -26,14 +26,8 @@ public class OpenApiConfig {
                         .contact(new Contact()
                                 .name("ZOmbiland Team")
                                 .email("team@zombieland.com"))
-                        .license(new License()
+                .license(new License()
                                 .name("Apache 2.0")
-                                .url("https://www.apache.org/licenses/LICENSE-2.0")))
-                .addSecurityItem(new SecurityRequirement().addList("Google OAuth2"))
-                .components(new Components()
-                        .addSecuritySchemes("Google OAuth2", new SecurityScheme()
-                                .name("Google OAuth2")
-                                .type(SecurityScheme.Type.OAUTH2)
-                                .description("Autenticación con Google OAuth2")));
+                                .url("https://www.apache.org/licenses/LICENSE-2.0")));
     }
 }
