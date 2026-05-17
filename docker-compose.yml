@@ -19,7 +19,7 @@ services:
 
   backend:
     build:
-      context: ./ZOmbiland-Backend
+      context: .
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -38,14 +38,14 @@ services:
 
   frontend:
     build:
-      context: ./ZOmbiland-Frontend
+      context: ../ZOmbiland-Frontend
       dockerfile: Dockerfile.dev
     container_name: zombiland-frontend
     restart: unless-stopped
     ports:
       - "5173:5173"
     volumes:
-      - ./ZOmbiland-Frontend:/app
+      - ../ZOmbiland-Frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=https://server-sabio.tail2474b3.ts.net
@@ -57,7 +57,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ZOmbiland-Frontend/public:/usr/share/nginx/html:ro
+      - ../ZOmbiland-Frontend/public:/usr/share/nginx/html:ro
     ports:
       - "80:80"
     depends_on:
